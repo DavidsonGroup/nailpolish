@@ -46,7 +46,7 @@ pub fn consensus(
 
     let mut duplicate_iterator = collection.stream_iter(duplicates_only);
 
-    let chunk_size = 100usize * threads;
+    let chunk_size = 5000usize * threads;
 
     // this vector stores the indexes of each group within the buf_duplicates and buf_single buffers
     let mut buf_locations = Vec::with_capacity(chunk_size);
@@ -153,6 +153,8 @@ fn call_umi_group(group: &mut UMIGroup) {
     let length = group.records.len();
 
     // // process ignored reads first
+
+    // TODO: why is this commented out?
     // if group.ignore {
     //     for record in group.records.iter() {
     //         io::write_read(&mut output, record, &group, ReadType::Ignored, false).unwrap();

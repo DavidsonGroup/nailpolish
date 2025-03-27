@@ -59,7 +59,7 @@ fn try_main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    println!("nailpolish v{}", cli::VERSION);
+    println!("nailpolish version {}{}", cli::VERSION, cli::COMMIT);
 
     match &cli.command {
         Commands::Summary { index, output } => {

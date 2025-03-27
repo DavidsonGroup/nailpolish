@@ -134,56 +134,6 @@ pub struct UMIGroup {
     pub consensus: Option<Record>,
 }
 
-/// Retrieves a FASTQ record from a file at a specified position.
-///
-/// # Errors
-///
-/// This function will return an error if:
-/// * The file cannot be seeked to the specified position, where position is the start byte
-///   of the required read.
-/// * The FASTQ reader encounters an unexpected EOF.
-/// * The record ID, sequence, or quality scores cannot be converted from UTF-8.
-///
-/// # Example
-///
-/// ```
-/// use std::fs::File;
-/// use anyhow::Result;
-///
-/// let mut file = File::open("example.fastq")?;
-/// let record = get_read_at_position(&mut file, 12345)?;
-/// println!("Record ID: {}", record.id);
-/// ```
-pub fn get_record_from_position<R: Read + Seek + Send>(
-    // file: &mut File,
-    reader: &mut R,
-    // file_sequential: &mut dyn Read,
-    // file_random: &mut dyn Read,
-    pos: &RecordPosition,
-) -> anyhow::Result<Record> {
-    // go to the position of the record
-    reader
-        .seek(SeekFrom::Start(pos.pos as u64))
-        .with_context(|| format!("Unable to seek file at position {}", pos.pos))?;
-
-    // read the exact number of bytes
-    // let mut bytes = Vec::with_capacity(pos.length);
-    let mut bytes = vec![0; pos.length];
-    reader.read_exact(&mut bytes).with_context(|| {
-        format!(
-            "Could not read {} lines at position {}",
-            pos.length, pos.pos
-        )
-    })?;
-
-    // create a needletail 'reader' with the file at this location
-    let mut fq_reader = FastqReader::new(&bytes[..]);
-
-    let rec = fq_reader.next().context("Unexpected EOF")??;
-
-    Record::try_from(rec).context("Could not perform utf8 conversions")
-}
-
 pub struct UMIGroupCollection {
     seq_parser: Box<dyn FastxReader>,
     rnd_reader: File,

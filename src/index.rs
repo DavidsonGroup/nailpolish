@@ -488,6 +488,7 @@ position {pos}
     `{header}`
 with capture group
     {re:?}
+suggestion: inspect the read using `tail -c +{pos} <fastq> | head -n 5`
 suggestion: if some of the reads should not produce a barcode, pass the --skip-unmatched flag"
     )]
     NoMatch {

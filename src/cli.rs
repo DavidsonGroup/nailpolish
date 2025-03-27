@@ -2,13 +2,11 @@ use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
 use clap::{Parser, Subcommand};
 
-const fn extra_build_info() -> &'static str {
-    match option_env!("CARGO_BUILD_DESC") {
-        Some(e) => e,
-        None => env!("CARGO_PKG_VERSION"),
-    }
-}
-pub const VERSION: &str = extra_build_info();
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const COMMIT: &str = match option_env!("CARGO_BUILD_DESC") {
+    Some(e) => e,
+    None => "",
+};
 const INFO_STRING: &str = "
 💅 nailpolish version ";
 const AFTER_STRING: &str = "
@@ -26,7 +24,7 @@ const STYLES: Styles = Styles::styled()
 #[derive(Parser)]
 #[command(
     version = VERSION,
-    about = format!("{}{}{}", INFO_STRING, VERSION, AFTER_STRING),
+    about = format!("{}{}{}{}", INFO_STRING, VERSION, COMMIT, AFTER_STRING),
     arg_required_else_help = true,
     flatten_help = true,
     styles = STYLES

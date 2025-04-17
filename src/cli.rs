@@ -1,6 +1,7 @@
 use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
-use clap::{Parser, Subcommand};
+use clap::{value_parser, Parser, Subcommand};
+use std::path::PathBuf;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const COMMIT: &str = match option_env!("CARGO_BUILD_DESC") {
@@ -40,25 +41,22 @@ pub enum Commands {
     #[command(arg_required_else_help = true)]
     Index {
         /// the input .fastq file
-        file: String,
+        #[arg(value_paser = value_parser!(PathBuf))]
+        file: PathBuf,
 
         #[arg(value_enum, conflicts_with = "barcode_regex", default_value = "bc-umi")]
         preset: crate::preset::PresetBarcodeFormats,
 
-        /// the output index file
-        #[arg(short, default_value = "index.tsv")]
-        output: String,
-
         /// whether to use a file containing pre-clustered reads, with every line in one of two formats:
         ///   1. READ_ID;BARCODE
         ///   2. READ_ID;BARCODE;UMI
-        #[arg(long, verbatim_doc_comment)]
-        clusters: Option<String>,
+        #[arg(long, verbatim_doc_comment, value_parser = value_parser!(PathBuf), conflicts_with = "preset")]
+        clusters: Option<PathBuf>,
 
         /// barcode regex format type, for custom header styles. this will override the preset given.
         /// for example, for the `bc-umi` preset:
         ///     ^([ATCG]{16})_([ATCG]{12})
-        #[arg(long, verbatim_doc_comment)]
+        #[arg(long, verbatim_doc_comment, conflicts_with_all = ["clusters", "preset"])]
         barcode_regex: Option<String>,
 
         /// skip, instead of error, on reads which are not accounted for:

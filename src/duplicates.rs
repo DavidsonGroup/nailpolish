@@ -1,9 +1,8 @@
-use crate::index::{IndexReader, IndexRecord};
-use crate::io::Record;
+use crate::io::InMemoryRecord;
+use crate::r#mod::{IndexReader, IndexRecord};
 use anyhow::{ensure, Context, Result};
 use indexmap::IndexMap;
-use serde::de::Error;
-use serde::{Deserialize, Serialize};
+use rkyv::{Archive, Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::ops::Index;
@@ -73,7 +72,7 @@ impl DuplicateMap {
 ///
 /// * `head` - The head part of the record identifier.
 /// * `tail` - The tail part of the record identifier.
-#[derive(Eq, PartialEq, Hash, Debug, Serialize, Deserialize, Clone)]
+#[derive(Eq, PartialEq, Hash, Debug, Archive, Serialize, Deserialize, Clone)]
 pub struct RecordIdentifier {
     pub head: String,
     pub tail: String,

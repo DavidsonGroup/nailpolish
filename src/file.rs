@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
+use rkyv::{Archive, Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Archive, Serialize, Deserialize, Default)]
 pub struct ReadFileMetadata {
     pub nailpolish_version: String,
     pub file_path: String,
@@ -10,7 +10,7 @@ pub struct ReadFileMetadata {
     pub matched_read_count: usize,
     pub unmatched_read_count: usize,
     pub read_count: usize,
-    pub avg_qual: f64,
-    pub avg_len: f64,
+    pub total_qual: f64,
+    pub total_len: f64,
     pub filtered_reads: usize,
 }

@@ -1,5 +1,5 @@
 use crate::duplicates::DuplicateMap;
-use crate::io::{ReadType, Record, UMIGroup, UMIGroupCollection};
+use crate::io::{DuplicateGroup, InMemoryRecord, ReadType, UMIGroupCollection};
 
 use spoa::{AlignmentEngine, AlignmentType};
 
@@ -7,7 +7,7 @@ use rayon::prelude::*;
 
 use std::io::prelude::*;
 
-use crate::index::IndexReader;
+use crate::r#mod::IndexReader;
 use anyhow::Result;
 
 enum GroupType {
@@ -149,7 +149,7 @@ pub fn consensus(
 /// # Returns
 ///
 /// A `String` containing the consensus sequence in FASTQ format.
-fn call_umi_group(group: &mut UMIGroup) {
+fn call_umi_group(group: &mut DuplicateGroup) {
     let length = group.records.len();
 
     // // process ignored reads first
@@ -188,8 +188,8 @@ fn call_umi_group(group: &mut UMIGroup) {
 
     // Create a consensus read
     let consensus = poa_graph.consensus_with_quality();
-    let mut rec = Record {
-        id: group.id.to_string(),
+    let mut rec = InMemoryRecord {
+        header: group.id.to_string(),
         seq: consensus.sequence,
         qual: consensus.quality,
     };

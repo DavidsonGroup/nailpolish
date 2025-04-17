@@ -1,4 +1,4 @@
-use crate::{duplicates, index};
+use crate::{duplicates, r#mod};
 use anyhow::{Context, Result};
 use serde_json::json;
 
@@ -17,7 +17,7 @@ const TEMPLATE_HTML: &str = include_str!("summary_template.html");
 /// * `Result<()>` - Returns an `Ok(())` if successful, or an `anyhow::Error` if an error occurs.
 pub fn summarize(index: &str, output: &str) -> Result<()> {
     info!("Summarising index at {index}");
-    let mut index = index::IndexReader::from_path(index)?;
+    let mut index = r#mod::IndexReader::from_path(index)?;
     let (_, statistics) = index.get_duplicates()?;
     let gb = index.metadata.gb;
 

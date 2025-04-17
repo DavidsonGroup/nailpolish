@@ -19,12 +19,12 @@ mod duplicates;
 mod file;
 mod filter;
 mod group;
-mod index;
 mod io;
 mod preset;
+mod reader;
+mod statistics;
 mod summary;
 
-use crate::io::UMIGroupCollection;
 use cli::{Cli, Commands};
 
 /// Creates a `BufWriter` for the given output option. This allows for an output file to be passed
@@ -67,7 +67,6 @@ fn try_main() -> Result<()> {
         }
         Commands::Index {
             file,
-            output,
             preset,
             barcode_regex,
             clusters,
@@ -92,14 +91,12 @@ fn try_main() -> Result<()> {
                 quality: qual.clone(),
             };
 
-            index::construct_index(
-                file,
-                output,
-                &barcode_regex,
-                *skip_unmatched,
-                clusters,
-                filter_opts,
-            )?;
+            let barcode_location = match clusters {
+                None => r#mod::BarcodeLocation::Regex(barcode_regex),
+                Some(p) => r#mod::BarcodeLocation::ClusterFile(p),
+            };
+
+            r#mod::construct_index(file, barcode_location, *skip_unmatched, filter_opts)?;
 
             info!("Completed index generation to {output}");
         }
@@ -111,7 +108,7 @@ fn try_main() -> Result<()> {
             duplicates_only,
             report_original_reads,
         } => {
-            let index = index::IndexReader::from_path(index)?;
+            let index = r#mod::IndexReader::from_path(index)?;
             let mut collection = UMIGroupCollection::new(index, input)?;
             let mut writer = get_writer(output)?;
 
@@ -130,7 +127,7 @@ fn try_main() -> Result<()> {
             input,
             output,
         } => {
-            let index = index::IndexReader::from_path(index)?;
+            let index = r#mod::IndexReader::from_path(index)?;
             let mut collection = UMIGroupCollection::new(index, input)?;
 
             let mut writer = get_writer(output)?;

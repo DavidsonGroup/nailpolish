@@ -1,0 +1,66 @@
+#[derive(Copy, Clone, Debug)]
+pub struct ArgInterval {
+    pub min: f64,
+    pub max: f64,
+}
+
+/// Error type for parsing an interval string.
+#[derive(Debug)]
+pub struct ParseIntervalErr(String);
+
+impl std::fmt::Display for ParseIntervalErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Invalid interval format: {}", self.0)
+    }
+}
+
+impl std::error::Error for ParseIntervalErr {}
+
+impl<'a> TryFrom<&'a str> for ArgInterval {
+    type Error = ParseIntervalErr;
+
+    fn try_from(arg: &'a str) -> Result<ArgInterval, Self::Error> {
+        let arg_lc = arg.to_lowercase();
+        let parts: Vec<&str> = arg_lc.split(',').collect();
+
+        if parts.len() != 2 {
+            return Err(ParseIntervalErr(indoc::formatdoc! {"
+            Expected format '<min>,<max>', got '{arg}'. The expected format is \
+            `a,b`, as in:
+              --len 0,15000
+              --len 0,inf
+              --len 100,15000
+            "}));
+        }
+
+        // Try to parse the minimum and maximum, handling unbounded cases.
+        let min = match parts[0].trim() {
+            "-inf" => f64::NEG_INFINITY,
+            s => s.parse::<f64>().map_err(|_| {
+                ParseIntervalErr(format!(
+                    "Invalid minimum value: '{}' (should be any float or `-inf`)",
+                    parts[0].trim()
+                ))
+            })?,
+        };
+
+        let max = match parts[1].trim() {
+            "inf" => f64::INFINITY,
+            s => s.parse::<f64>().map_err(|_| {
+                ParseIntervalErr(format!(
+                    "Invalid maximum value: '{}' (should be any float or `inf`)",
+                    parts[1].trim()
+                ))
+            })?,
+        };
+
+        Ok(ArgInterval { min, max })
+    }
+}
+
+impl ArgInterval {
+    pub fn contains(&self, v: f64) -> bool {
+        let v = v as f64;
+        (self.min < v) && (v < self.max)
+    }
+}

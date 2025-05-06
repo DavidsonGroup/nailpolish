@@ -1,6 +1,7 @@
 /debug
 /target
 /temp
+/scratch
 
 .DS_Store
 .idea

@@ -55,7 +55,7 @@ fn consensus_1t() {
 
     let _ = command
         .args(&[
-            "call",
+            "consensus",
             "--index",
             "tests/correct/index.tsv",
             "--input",
@@ -84,7 +84,7 @@ fn consensus_4t() {
 
     let _ = command
         .args(&[
-            "call",
+            "consensus",
             "--index",
             "tests/correct/index.tsv",
             "--input",

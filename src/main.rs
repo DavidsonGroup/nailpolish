@@ -13,19 +13,17 @@ use std::{
 use anyhow::Result;
 use clap::Parser;
 
-mod call;
 mod cli;
-mod duplicates;
-mod file;
-mod filter;
+mod consensus;
 mod group;
 mod io;
-mod preset;
-mod reader;
-mod statistics;
 mod summary;
 
-use cli::{Cli, Commands};
+#[macro_use]
+mod utils;
+
+use cli::{get_version_label, preset, Cli, Commands};
+use io::index::filter;
 
 /// Creates a `BufWriter` for the given output option. This allows for an output file to be passed
 /// or otherwise will default to using standard output.
@@ -59,7 +57,7 @@ fn try_main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    println!("nailpolish version {}{}", cli::VERSION, cli::COMMIT);
+    println!("nailpolish version {}", get_version_label());
 
     match &cli.command {
         Commands::Summary { index, output } => {
@@ -92,33 +90,21 @@ fn try_main() -> Result<()> {
             };
 
             let barcode_location = match clusters {
-                None => r#mod::BarcodeLocation::Regex(barcode_regex),
-                Some(p) => r#mod::BarcodeLocation::ClusterFile(p),
+                None => io::index::construct::BarcodeLocation::Regex(barcode_regex),
+                Some(p) => io::index::construct::BarcodeLocation::ClusterFile(p.clone()),
             };
 
-            r#mod::construct_index(file, barcode_location, *skip_unmatched, filter_opts)?;
-
-            info!("Completed index generation to {output}");
-        }
-        Commands::Call {
-            index,
-            input,
-            output,
-            threads,
-            duplicates_only,
-            report_original_reads,
-        } => {
-            let index = r#mod::IndexReader::from_path(index)?;
-            let mut collection = UMIGroupCollection::new(index, input)?;
-            let mut writer = get_writer(output)?;
-
-            call::consensus(
-                &mut collection,
-                &mut writer,
-                *threads,
-                *duplicates_only,
-                *report_original_reads,
+            io::index::construct::construct_index(
+                file,
+                barcode_location,
+                *skip_unmatched,
+                filter_opts,
             )?;
+
+            info!("Completed index generation to index file... TODO fix");
+        }
+        Commands::Call(cli) => {
+            consensus::consensus(cli);
 
             info!("Completed successfully.")
         }
@@ -127,14 +113,7 @@ fn try_main() -> Result<()> {
             input,
             output,
         } => {
-            let index = r#mod::IndexReader::from_path(index)?;
-            let mut collection = UMIGroupCollection::new(index, input)?;
-
-            let mut writer = get_writer(output)?;
-
-            group::group(&mut collection, &mut writer)?;
-
-            info!("Completed successfully.")
+            todo!();
         }
     };
     Ok(())

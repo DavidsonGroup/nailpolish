@@ -153,4 +153,9 @@ pub struct CallArgs {
     /// if the original read headers are valuable, this will create a orig_header field in the consensus called result with the entire original read header
     #[arg(long, action)]
     pub report_original_header: bool,
+
+    /// add debugging information to the read header [intended for internal development]
+    /// warning: since timings are reported, the output will not be identical across runs
+    #[arg(long, action)]
+    pub debugging_header: bool,
 }

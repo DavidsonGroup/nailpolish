@@ -99,12 +99,12 @@ impl SingleReadAccessor for SequentialReader {
     fn _fetch(&mut self, pos: u64, num_bytes: u64) -> Result<InMemorySequenceRecord> {
         let offset = (pos as i64) - (self.position as i64);
         if offset != 0 {
-            warn!(
-                "Offset is NOT zero:\n  {} -> {pos}, {num_bytes} bytes to read",
+            debug!(
+                "Offset is NOT zero:\n  {} -> {pos}, {num_bytes} bytes to read, offset: {offset}",
                 self.position
-            )
+            );
+            self.reader.seek_relative(offset)?;
         }
-        self.reader.seek_relative(offset)?;
 
         self.position = pos + num_bytes;
 

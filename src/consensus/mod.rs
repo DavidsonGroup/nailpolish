@@ -7,8 +7,10 @@ use formatter::make_consensus_header;
 use itertools::Itertools;
 use rayon::prelude::*;
 use spoa::{AlignmentEngine, AlignmentType};
+use std::fmt::Write as StrWrite;
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::Write as IoWrite;
+use std::time::Instant;
 
 mod formatter;
 
@@ -61,6 +63,7 @@ pub fn consensus(cli: &crate::cli::CallArgs) -> Result<()> {
             .into_iter()
             .map(|group| -> Result<_> {
                 let reads = accessor.fetch_reads_archived(group.reads.as_slice())?;
+                debug!("length: {}", reads.len());
                 Ok((group, reads))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -86,7 +89,7 @@ pub fn consensus(cli: &crate::cli::CallArgs) -> Result<()> {
 }
 
 fn consensus_call(group: &ArchivedDuplicateGroup, reads: &Vec<Record>, args: &CallArgs) -> String {
-    let header = make_consensus_header(group, reads, args);
+    let mut header = make_consensus_header(group, reads, args);
 
     if reads.len() == 1 {
         // simplex read
@@ -98,6 +101,7 @@ fn consensus_call(group: &ArchivedDuplicateGroup, reads: &Vec<Record>, args: &Ca
         format!("@{}\n{}\n+\n{}", header, seq, qual)
     } else {
         // consensus call
+        let start_time = Instant::now();
 
         // initialise `spoa` machinery
         let mut alignment_engine = AlignmentEngine::new(AlignmentType::kOV, 5, -4, -8, -6, -10, -4);
@@ -114,6 +118,10 @@ fn consensus_call(group: &ArchivedDuplicateGroup, reads: &Vec<Record>, args: &Ca
 
         // Create a consensus read
         let consensus = poa_graph.consensus_with_quality();
+
+        if args.debugging_header {
+            write!(header, "|elapsed_us={}", start_time.elapsed().as_micros()).unwrap();
+        }
 
         let seq = &consensus.sequence;
         let qual = &consensus.quality;

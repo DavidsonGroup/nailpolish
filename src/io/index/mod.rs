@@ -2,16 +2,17 @@ pub mod construct;
 pub mod filter;
 pub mod metadata;
 pub mod storage;
-
-use std::time::SystemTimeError;
+use metadata::IndexMetadata;
 
 use crate::io::index::storage::FileIndexPath;
 use crate::io::reads::uncompressed::UncompressedFileReader;
 use crate::io::reads::GroupedReadsAccessor;
 use crate::summary::statistics::RecordIdentifier;
+
 use anyhow::{Context, Result};
+use std::time::SystemTimeError;
+
 use indexmap::IndexMap;
-use metadata::IndexMetadata;
 use needletail::parser::SequenceRecord;
 use rkyv::{rancor, vec::ArchivedVec, Archive, Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};

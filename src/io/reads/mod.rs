@@ -1,14 +1,12 @@
 pub mod record;
 pub mod uncompressed;
 
-use std::io::{Cursor, Read};
-
-use crate::io::index::{DuplicateGroup, ReadLocation};
-use anyhow::{Context, Result};
-use bio::io::fastq::{self, FastqRead};
-use rkyv::Deserialize;
-
 use super::index::{ArchivedReadLocation, ReadLocationTrait};
+use crate::io::index::ReadLocation;
+
+use anyhow::Result;
+use bio::io::fastq::{self, FastqRead};
+use std::io::Cursor;
 
 const BUF_CAPACITY: usize = 1024usize.pow(2);
 

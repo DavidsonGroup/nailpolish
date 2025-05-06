@@ -60,7 +60,7 @@ impl<'a> TryFrom<&'a str> for ArgInterval {
 
 impl ArgInterval {
     pub fn contains(&self, v: f64) -> bool {
-        let v = v as f64;
+        let v = v;
         (self.min < v) && (v < self.max)
     }
 }

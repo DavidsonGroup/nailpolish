@@ -4,12 +4,13 @@
 //! It provides functionality to serialize, deserialize, and manage index data
 //! for efficient storage and retrieval.
 
+use crate::io::index::{ArchivedIndex, Index};
+
+use anyhow::Result;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
-use crate::io::index::{ArchivedIndex, Index};
-use anyhow::{Context, Result};
 use memmap::Mmap;
 use rkyv::{api::high::to_bytes_in, rancor};
 

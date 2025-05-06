@@ -1,16 +1,18 @@
+use crate::summary::statistics::RecordIdentifier;
+
 use super::filter::should_keep;
 use super::storage::FileIndexPath;
 use super::{DuplicateGroupKey, Index, ReadLocation, ReadLocationTrait};
-use regex::Regex;
-use thiserror::Error;
 
-use crate::summary::statistics::RecordIdentifier;
-use anyhow::{bail, Context, Result};
-use needletail::parser::SequenceRecord;
-use needletail::FastxReader;
+use anyhow::{bail, Result};
 use std::fs::File;
 use std::io::{BufReader, Seek};
 use std::path::{Path, PathBuf};
+use thiserror::Error;
+
+use needletail::parser::SequenceRecord;
+use needletail::FastxReader;
+use regex::Regex;
 
 pub enum BarcodeLocation {
     Regex(String),
@@ -60,7 +62,7 @@ pub fn construct_index(
             key
         };
 
-        &index.add_read(key, loc, seq);
+        index.add_read(key, loc, seq);
         Ok(())
     };
 

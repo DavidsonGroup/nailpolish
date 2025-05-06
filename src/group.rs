@@ -1,5 +1,3 @@
-use anyhow::Result;
-use std::io::prelude::*;
 
 /// Adds tags to duplicate reads from the input to show what group they are in.
 ///

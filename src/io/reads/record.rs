@@ -1,5 +1,4 @@
-use super::{InMemorySequenceRecord, RecordLoader};
-use anyhow::{Context, Result};
+use super::InMemorySequenceRecord;
 use bio::bio_types::sequence::SequenceRead;
 use needletail::parser::SequenceRecord;
 
@@ -16,7 +15,7 @@ impl QualityCompute for SequenceRecord<'_> {
     fn phred_quality(&self) -> Option<impl IntoIterator<Item = u32>> {
         // we transform the quality to a PHRED score (ASCII ! to I)
         // https://en.wikipedia.org/wiki/Phred_quality_score
-        Some(self.qual()?.into_iter().map(|&x| (x as u32) - 33u32))
+        Some(self.qual()?.iter().map(|&x| (x as u32) - 33u32))
     }
 
     /// Returns the average PHRED quality score of the record
@@ -33,7 +32,7 @@ impl QualityCompute for InMemorySequenceRecord {
     fn phred_quality(&self) -> Option<impl IntoIterator<Item = u32>> {
         // we transform the quality to a PHRED score (ASCII ! to I)
         // https://en.wikipedia.org/wiki/Phred_quality_score
-        Some(self.qual().into_iter().map(|&x| (x as u32) - 33u32))
+        Some(self.qual().iter().map(|&x| (x as u32) - 33u32))
     }
 
     /// Returns the average PHRED quality score of the record

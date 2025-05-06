@@ -1,10 +1,11 @@
 use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
 use clap::{value_parser, Args, Parser, Subcommand};
-use interval::ArgInterval;
 use std::path::PathBuf;
 
 pub mod interval;
+use interval::ArgInterval;
+
 pub mod preset;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

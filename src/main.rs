@@ -85,8 +85,8 @@ fn try_main() -> Result<()> {
             };
 
             let filter_opts = filter::FilterOpts {
-                len: len.clone(),
-                quality: qual.clone(),
+                len: *len,
+                quality: *qual,
             };
 
             let barcode_location = match clusters {

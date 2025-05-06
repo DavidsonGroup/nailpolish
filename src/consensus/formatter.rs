@@ -1,5 +1,6 @@
 use crate::io::index::ArchivedDuplicateGroupKey;
 use crate::{cli::CallArgs, io::index::ArchivedDuplicateGroup};
+
 use bio::io::fastq::Record;
 
 pub fn make_consensus_header(
@@ -31,7 +32,7 @@ pub fn make_consensus_header(
     let mut params = format!("{key}|id={id}|type={type_}");
 
     if args.report_original_header {
-        params.push_str(&format!("|orig_header="));
+        params.push_str("|orig_header=");
 
         for r in reads {
             params.push_str("[\"");

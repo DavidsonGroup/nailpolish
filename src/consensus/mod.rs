@@ -1,23 +1,19 @@
 use crate::cli::CallArgs;
 use crate::io::index::storage::{FileIndexPath, IndexReader};
 use crate::io::index::ArchivedDuplicateGroup;
+
 use anyhow::Result;
-use bio::io::fastq::Record;
-use formatter::make_consensus_header;
 use itertools::Itertools;
-use rayon::prelude::*;
-use spoa::{AlignmentEngine, AlignmentType};
 use std::fmt::Write as StrWrite;
 use std::fs::File;
 use std::io::Write as IoWrite;
 use std::time::Instant;
 
-mod formatter;
+use bio::io::fastq::Record;
+use rayon::prelude::*;
+use spoa::{AlignmentEngine, AlignmentType};
 
-enum GroupType {
-    Simplex(usize),
-    Duplex(usize),
-}
+mod formatter;
 
 /// Generates consensus sequences from the input in a thread-stable manner.
 ///
@@ -89,7 +85,7 @@ pub fn consensus(cli: &crate::cli::CallArgs) -> Result<()> {
 }
 
 fn consensus_call(group: &ArchivedDuplicateGroup, reads: &Vec<Record>, args: &CallArgs) -> String {
-    let mut header = make_consensus_header(group, reads, args);
+    let mut header = formatter::make_consensus_header(group, reads, args);
 
     if reads.len() == 1 {
         // simplex read

@@ -1,8 +1,6 @@
-use crate::summary::statistics::RecordIdentifier;
-
 use super::filter::should_keep;
 use super::storage::FileIndexPath;
-use super::{DuplicateGroupKey, Index, ReadLocation, ReadLocationTrait};
+use super::{DuplicateGroupKey, Index, ReadLocation, ReadLocationTrait, RecordIdentifier};
 
 use anyhow::{bail, Result};
 use std::fs::File;
@@ -41,18 +39,16 @@ pub enum BarcodeLocation {
 ///
 /// This function will return an error if reading from the input file, writing to the output file,
 /// or processing the data fails.
-pub fn construct_index(
-    fastq_path: &Path,
-    barcode_location: BarcodeLocation,
-    skip_unmatched: bool,
-    filters: crate::filter::FilterOpts,
-) -> Result<()> {
+pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
+    let path = FileIndexPath::new(&cli.file);
+
     // create the .fastq reader
-    let f = File::open(fastq_path).expect("File could not be opened");
+    let f = File::open(path.fastq()).expect("File could not be opened");
     let mut reader = BufReader::new(f);
 
-    let path = FileIndexPath::new(fastq_path);
     let mut index = Index::new(path);
+
+    let filters = super::filter::FilterOpts::new(cli);
 
     // callback function to process each read that comes in & add to the index
     let callback = |loc: ReadLocation, key: DuplicateGroupKey, seq: SequenceRecord| {
@@ -66,14 +62,18 @@ pub fn construct_index(
         Ok(())
     };
 
-    match barcode_location {
-        BarcodeLocation::Regex(re) => {
-            let re = regex::Regex::new(&re)?;
-            iter_lines_with_regex(&mut reader, &re, callback)?
-        }
-        BarcodeLocation::ClusterFile(file) => {
-            // iter_lines_with_cluster_file(reader, &mut wtr, &file, skip_unmatched)?
-        }
+    if let Some(loc) = &cli.clusters {
+        todo!();
+    } else {
+        let re = match &cli.barcode_regex {
+            Some(v) => {
+                info!("Using barcode format {v}");
+                regex::Regex::new(v)
+            }
+            None => cli.preset.to_regex(),
+        }?;
+
+        iter_lines_with_regex(&mut reader, &re, callback)?
     }
 
     index.mark_indexation_complete(reader.stream_position()? as f64 / (1024.0 * 1024.0));
@@ -275,13 +275,7 @@ fn extract_header_id(header: &str, re: &Regex, pos: usize) -> Result<(usize, Rec
         .map(|m| m.as_str())
         .collect::<Vec<_>>();
 
-    Ok((
-        captures.len(),
-        RecordIdentifier {
-            head: captures[0].to_string(),
-            tail: captures[1..].join("_"),
-        },
-    ))
+    Ok((captures.len(), RecordIdentifier::from_recs(&captures)))
 }
 
 #[derive(Error, Debug)]

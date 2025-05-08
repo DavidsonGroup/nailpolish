@@ -6,6 +6,15 @@ pub struct FilterOpts {
     pub quality: ArgInterval,
 }
 
+impl FilterOpts {
+    pub fn new(cli: &crate::cli::IndexArgs) -> Self {
+        Self {
+            len: cli.len.clone(),
+            quality: cli.qual.clone(),
+        }
+    }
+}
+
 pub fn should_keep(read: &SequenceRecord, opts: &FilterOpts) -> bool {
     let quality_good = match read.phred_quality_avg() {
         Some(v) => opts.quality.contains(v),

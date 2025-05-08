@@ -1,6 +1,5 @@
-use crate::cli::CallArgs;
-use crate::io::index::storage::{FileIndexPath, IndexReader};
-use crate::io::index::ArchivedDuplicateGroup;
+use crate::cli::ConsensusArgs;
+use crate::io::index::{ArchivedDuplicateGroup, FileIndexPath, IndexReader};
 
 use anyhow::Result;
 use itertools::Itertools;
@@ -31,8 +30,16 @@ mod formatter;
 ///
 /// * `Result<()>` - Returns `Ok(())` if successful, or an error if an error occurs
 ///   during processing.
-pub fn consensus(cli: &crate::cli::CallArgs) -> Result<()> {
+pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     let paths = FileIndexPath::new(&cli.input);
+
+    paths.check_indexed()?;
+    info!(
+        "Consensus calling {} → {}",
+        paths.fastq().display(),
+        cli.output.display()
+    );
+
     let index_rdr = IndexReader::new(paths)?;
 
     let index = index_rdr.load()?;
@@ -50,7 +57,7 @@ pub fn consensus(cli: &crate::cli::CallArgs) -> Result<()> {
     let mut accessor = index.get_read_accessor()?;
     let buffer_size: usize = 500usize * cli.threads;
 
-    let mut file_w = File::create(cli.output.clone())?;
+    let mut file_w = File::create_new(cli.output.clone())?;
     let mut first = true;
 
     for chunk in &index.groups().chunks(buffer_size) {
@@ -84,7 +91,11 @@ pub fn consensus(cli: &crate::cli::CallArgs) -> Result<()> {
     Ok(())
 }
 
-fn consensus_call(group: &ArchivedDuplicateGroup, reads: &Vec<Record>, args: &CallArgs) -> String {
+fn consensus_call(
+    group: &ArchivedDuplicateGroup,
+    reads: &Vec<Record>,
+    args: &ConsensusArgs,
+) -> String {
     let mut header = formatter::make_consensus_header(group, reads, args);
 
     if reads.len() == 1 {

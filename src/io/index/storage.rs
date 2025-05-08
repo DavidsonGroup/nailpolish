@@ -6,7 +6,7 @@
 
 use crate::io::index::{ArchivedIndex, Index};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
@@ -40,7 +40,7 @@ impl Index {
         let index_path = self.metadata.file_path.index();
         info!("Writing to {}...", index_path.display());
 
-        let output = File::create(index_path)?;
+        let output = File::create_new(index_path)?;
         let buf_writer = BufWriter::new(output);
         let mut serializer = rkyv::ser::writer::IoWriter::new(buf_writer);
 
@@ -89,6 +89,17 @@ impl FileIndexPath {
     pub fn index(&self) -> &PathBuf {
         &self.index
     }
+
+    pub fn check_indexed(&self) -> Result<()> {
+        if self.index().exists() {
+            Ok(())
+        } else {
+            anyhow::bail!(IndexReadErr::IndexDoesNotExist {
+                path: std::path::absolute(self.index())?.display().to_string(),
+                file: self.fastq().display().to_string(),
+            })
+        }
+    }
 }
 
 /// Computes the path for the index file based on the input file path.
@@ -103,4 +114,17 @@ fn compute_index_path(file: &Path) -> PathBuf {
     extension.push(".nailpolish.idx");
 
     index.with_extension(extension)
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum IndexReadErr {
+    #[error(
+        "
+index file expected but not found at:
+  {path}
+
+suggestion: to generate an index, try `nailpolish index {file} --help`
+suggestion: if you have recently moved {file}, move the .fastq.nailpolish.idx file as well"
+    )]
+    IndexDoesNotExist { path: String, file: String },
 }

@@ -45,17 +45,15 @@ impl IndexMetadata {
 
     pub fn report_read_counts(&self) {
         info!(
-            "Statistics:\n
-            {} reads:\n
-                {} valid\n
-                {} filtered out\n
-                {} invalid\n
-            completed in {:.1}s runtime",
-            self.total_reads,
-            self.normal_reads,
-            self.filtered_reads,
-            self.invalid_reads,
-            self.elapsed,
+            indoc::indoc! {"
+                
+                Statistics:
+                {} reads in total:
+                    {} valid
+                    {} filtered out
+                completed in {:.1}s runtime"
+            },
+            self.total_reads, self.normal_reads, self.filtered_reads, self.elapsed,
         )
     }
 }

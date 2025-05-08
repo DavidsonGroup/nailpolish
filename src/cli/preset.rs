@@ -1,5 +1,7 @@
+use regex::Regex;
+
 /// Enum representing different preset barcode formats.
-#[derive(clap::ValueEnum, Clone)]
+#[derive(clap::ValueEnum, Clone, Debug)]
 pub enum PresetBarcodeFormats {
     /// @BARCODE_UMI format as produced by Flexiplex for 10x3 chemistry
     BcUmi,
@@ -11,19 +13,13 @@ pub enum PresetBarcodeFormats {
     Illumina,
 }
 
-/// Returns a regular expression string for barcode presets.
-///
-/// # Arguments
-///
-/// * `preset` - A reference to a `PresetBarcodeFormats` enum variant.
-///
-/// # Returns
-///
-/// A `String` containing the regular expression for the specified barcode format.
-pub fn get_barcode_regex(preset: &PresetBarcodeFormats) -> String {
-    match preset {
-        PresetBarcodeFormats::BcUmi => String::from(r"^([ATCG]{16})_([ATCG]{12})"),
-        PresetBarcodeFormats::UmiTools => String::from(r"_([ATCG]+)$"),
-        PresetBarcodeFormats::Illumina => String::from(r":([ATCG]+)$"),
+impl PresetBarcodeFormats {
+    /// Returns the corresponding regex for the preset
+    pub fn to_regex(&self) -> Result<Regex, regex::Error> {
+        Regex::new(match self {
+            PresetBarcodeFormats::BcUmi => r"^([ATCG]{16})_([ATCG]{12})",
+            PresetBarcodeFormats::UmiTools => r"_([ATCG]+)$",
+            PresetBarcodeFormats::Illumina => r":([ATCG]+)$",
+        })
     }
 }

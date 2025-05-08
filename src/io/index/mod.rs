@@ -1,13 +1,15 @@
 pub mod construct;
 pub mod filter;
 pub mod metadata;
+pub mod record_identifier;
 pub mod storage;
+
 use metadata::IndexMetadata;
 
-use crate::io::index::storage::FileIndexPath;
+pub use crate::io::index::storage::{FileIndexPath, IndexReader};
 use crate::io::reads::uncompressed::UncompressedFileReader;
 use crate::io::reads::GroupedReadsAccessor;
-use crate::summary::statistics::RecordIdentifier;
+pub use record_identifier::RecordIdentifier;
 
 use anyhow::{Context, Result};
 use std::time::SystemTimeError;

@@ -1,12 +1,12 @@
 use crate::io::index::ArchivedDuplicateGroupKey;
-use crate::{cli::CallArgs, io::index::ArchivedDuplicateGroup};
+use crate::{cli::ConsensusArgs, io::index::ArchivedDuplicateGroup};
 
 use bio::io::fastq::Record;
 
 pub fn make_consensus_header(
     group: &ArchivedDuplicateGroup,
     reads: &Vec<Record>,
-    args: &CallArgs,
+    args: &ConsensusArgs,
 ) -> String {
     let len = group.reads.len();
     let id = group.index;

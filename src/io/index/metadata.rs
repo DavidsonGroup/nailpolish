@@ -1,4 +1,5 @@
 use crate::io::reads::record::QualityCompute;
+use crate::utils;
 use crate::{cli::get_version_label, io::index::storage::FileIndexPath};
 use rkyv::{Archive, Deserialize, Serialize};
 
@@ -13,8 +14,8 @@ pub struct IndexMetadata {
     pub invalid_reads: usize,
     pub filtered_reads: usize,
     pub total_reads: usize,
-    pub avg_qual: f64,
-    pub avg_len: f64,
+    pub avg_qual: f32,
+    pub avg_len: f32,
 }
 
 impl IndexMetadata {
@@ -29,12 +30,12 @@ impl IndexMetadata {
         self.invalid_reads += key.is_invalid() as usize;
         self.total_reads += 1;
 
-        self.avg_qual = running_avg(
+        self.avg_qual = utils::running_avg(
             self.avg_qual,
             rec.phred_quality_avg().unwrap_or(0.0),
             self.total_reads,
         );
-        self.avg_len = running_avg(self.avg_len, rec.num_bases() as f64, self.total_reads);
+        self.avg_len = utils::running_avg(self.avg_len, rec.num_bases() as f32, self.total_reads);
     }
 
     pub fn add_general_metadata(&mut self, file: FileIndexPath) {
@@ -48,17 +49,12 @@ impl IndexMetadata {
             indoc::indoc! {"
                 
                 Statistics:
-                {} reads in total:
-                    {} valid
-                    {} filtered out
+                  {} reads in total
+                  {} valid
+                  {} filtered out
                 completed in {:.1}s runtime"
             },
             self.total_reads, self.normal_reads, self.filtered_reads, self.elapsed,
         )
     }
-}
-
-fn running_avg(existing: f64, new: f64, new_count: usize) -> f64 {
-    let new_count = new_count as f64;
-    (existing * (new_count - 1.0) + new) / new_count
 }

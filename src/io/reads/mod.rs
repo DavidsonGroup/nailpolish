@@ -3,6 +3,8 @@ pub mod uncompressed;
 
 use super::index::{ArchivedReadLocation, ReadLocationTrait};
 use crate::io::index::ReadLocation;
+pub use record::QualityCompute;
+use rkyv::Deserialize;
 
 use anyhow::Result;
 use bio::io::fastq::{self, FastqRead};
@@ -45,6 +47,8 @@ pub trait GroupedReadsAccessor {
             .map(|v| ReadLocation {
                 _pos: v.pos(),
                 _byte_len: v.byte_len(),
+                seq_len: v.seq_len.try_into().unwrap(),
+                qual: v.qual.try_into().unwrap(),
             })
             .collect::<Vec<_>>();
         self.fetch_reads(&reads)

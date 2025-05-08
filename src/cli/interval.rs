@@ -1,7 +1,7 @@
 #[derive(Copy, Clone, Debug)]
 pub struct ArgInterval {
-    pub min: f64,
-    pub max: f64,
+    pub min: f32,
+    pub max: f32,
 }
 
 /// Error type for parsing an interval string.
@@ -35,8 +35,8 @@ impl<'a> TryFrom<&'a str> for ArgInterval {
 
         // Try to parse the minimum and maximum, handling unbounded cases.
         let min = match parts[0].trim() {
-            "-inf" => f64::NEG_INFINITY,
-            s => s.parse::<f64>().map_err(|_| {
+            "-inf" => f32::NEG_INFINITY,
+            s => s.parse::<f32>().map_err(|_| {
                 ParseIntervalErr(format!(
                     "Invalid minimum value: '{}' (should be any float or `-inf`)",
                     parts[0].trim()
@@ -45,8 +45,8 @@ impl<'a> TryFrom<&'a str> for ArgInterval {
         };
 
         let max = match parts[1].trim() {
-            "inf" => f64::INFINITY,
-            s => s.parse::<f64>().map_err(|_| {
+            "inf" => f32::INFINITY,
+            s => s.parse::<f32>().map_err(|_| {
                 ParseIntervalErr(format!(
                     "Invalid maximum value: '{}' (should be any float or `inf`)",
                     parts[1].trim()
@@ -59,7 +59,7 @@ impl<'a> TryFrom<&'a str> for ArgInterval {
 }
 
 impl ArgInterval {
-    pub fn contains(&self, v: f64) -> bool {
+    pub fn contains(&self, v: f32) -> bool {
         let v = v;
         (self.min < v) && (v < self.max)
     }

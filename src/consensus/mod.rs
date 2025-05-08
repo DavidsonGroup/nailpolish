@@ -32,15 +32,13 @@ mod formatter;
 ///   during processing.
 pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     let paths = FileIndexPath::new(&cli.input);
+    let index_rdr = IndexReader::new(&paths)?;
 
-    paths.check_indexed()?;
     info!(
         "Consensus calling {} → {}",
         paths.fastq().display(),
         cli.output.display()
     );
-
-    let index_rdr = IndexReader::new(paths)?;
 
     let index = index_rdr.load()?;
 

@@ -25,6 +25,8 @@ use smallvec::{smallvec, SmallVec};
 pub struct ReadLocation {
     pub _pos: usize,
     pub _byte_len: usize,
+    pub seq_len: usize,
+    pub qual: f32,
 }
 
 pub trait ReadLocationTrait {

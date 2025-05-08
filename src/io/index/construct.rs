@@ -1,6 +1,7 @@
 use super::filter::should_keep;
 use super::storage::FileIndexPath;
 use super::{DuplicateGroupKey, Index, ReadLocation, ReadLocationTrait, RecordIdentifier};
+use crate::io::reads::QualityCompute;
 
 use anyhow::{bail, Result};
 use std::fs::File;
@@ -42,6 +43,18 @@ pub enum BarcodeLocation {
 pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
     let path = FileIndexPath::new(&cli.file);
 
+    if path.index().exists() {
+        if cli.overwrite {
+            info!("Index already exists, but the `--overwrite` flag was passed, so overwriting")
+        } else {
+            bail!(indoc::formatdoc! { "
+            Index file `{}` already exists
+
+            suggestion: run nailpolish with '--overwrite' to disable file check, or delete existing index"
+            , path.index().display() })
+        }
+    }
+
     // create the .fastq reader
     let f = File::open(path.fastq()).expect("File could not be opened");
     let mut reader = BufReader::new(f);
@@ -76,10 +89,14 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
         iter_lines_with_regex(&mut reader, &re, callback)?
     }
 
-    index.mark_indexation_complete(reader.stream_position()? as f64 / (1024.0 * 1024.0));
+    index.mark_indexation_complete(reader.stream_position()? as f64 / (1024.0 * 1024.0))?;
     index.metadata().report_read_counts();
 
-    index.write()
+    index.write()?;
+
+    info!("Complete");
+
+    Ok(())
 }
 
 /// Iterates over lines in a FASTQ file, extracting barcodes using a regex
@@ -120,6 +137,8 @@ where
         let read_location = ReadLocation {
             _pos: rec.position().byte() as usize,
             _byte_len: rec.all().len() + 1,
+            seq_len: rec.num_bases(),
+            qual: rec.phred_quality_avg().unwrap_or_default(),
         };
         let header = std::str::from_utf8(rec.id())?;
 

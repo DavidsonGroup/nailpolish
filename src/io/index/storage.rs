@@ -20,13 +20,20 @@ pub struct IndexReader {
 }
 
 impl IndexReader {
-    pub fn new(file: FileIndexPath) -> Result<Self> {
+    /// Create the IndexReader and perform a check to ensure that the index file is present and the file can be memory-mapped. Will not read the file.
+    pub fn new(file: &FileIndexPath) -> Result<Self> {
+        file.check_indexed()?;
+
         let file_obj = File::open(file.index())?;
         let mmap = unsafe { Mmap::map(&file_obj)? };
 
-        Ok(Self { file, mmap })
+        Ok(Self {
+            file: file.clone(),
+            mmap,
+        })
     }
 
+    /// Load the index file into an ArchivedIndex object. This is currently a zero-copy operation due to the use of rkyv.
     pub fn load(&self) -> Result<&ArchivedIndex> {
         let idx: &ArchivedIndex = rkyv::access::<ArchivedIndex, rkyv::rancor::Error>(&self.mmap)?;
         Ok(idx)
@@ -40,7 +47,7 @@ impl Index {
         let index_path = self.metadata.file_path.index();
         info!("Writing to {}...", index_path.display());
 
-        let output = File::create_new(index_path)?;
+        let output = File::create(index_path)?;
         let buf_writer = BufWriter::new(output);
         let mut serializer = rkyv::ser::writer::IoWriter::new(buf_writer);
 

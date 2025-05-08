@@ -43,13 +43,17 @@ pub fn get_about_label() -> String {
     flatten_help = true,
     styles = STYLES
 )]
-
+#[derive(Debug)]
 pub struct Cli {
+    /// Print debugging information. Intended for development use.
+    #[arg(long, action, hide(true))]
+    pub debug: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum Commands {
     #[command(arg_required_else_help = true)]
     Index(IndexArgs),
@@ -69,6 +73,10 @@ pub enum Commands {
 pub struct IndexArgs {
     /// the input .fastq file
     pub file: PathBuf,
+
+    /// overwrite an existing index file, if it exists
+    #[arg(long, action)]
+    pub overwrite: bool,
 
     #[arg(value_enum, conflicts_with = "barcode_regex", default_value = "bc-umi")]
     pub preset: preset::PresetBarcodeFormats,

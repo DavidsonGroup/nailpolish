@@ -13,20 +13,25 @@ mod consensus;
 mod group;
 mod io;
 mod summary;
+mod utils;
 
 use cli::{get_version_label, Cli, Commands};
 
 fn try_main() -> Result<()> {
-    // initialise logger
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .format_target(false)
-        .init();
-
     // parse the CLI
     let cli = Cli::parse();
 
+    // initialise logger
+    let default_level = if cli.debug { "debug" } else { "info" };
+
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(default_level))
+        .format_target(false)
+        .init();
+
     // start with version information, if a command has been run
     info!("{}", get_version_label());
+
+    debug!("Called with parameters:\n{:?}", cli);
 
     match &cli.command {
         Commands::Summary(args) => summary::summarize(args),

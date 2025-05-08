@@ -5,10 +5,10 @@ use needletail::parser::SequenceRecord;
 pub trait QualityCompute {
     fn phred_quality(&self) -> Option<impl IntoIterator<Item = u32>>;
 
-    fn phred_quality_avg(&self) -> Option<f64>;
+    fn phred_quality_avg(&self) -> Option<f32>;
 }
 
-const ROUND_PRECISION: f64 = 100.0;
+const ROUND_PRECISION: f32 = 100.0;
 
 impl QualityCompute for SequenceRecord<'_> {
     /// Returns the PHRED quality scores of the record as a byte slice.
@@ -19,9 +19,9 @@ impl QualityCompute for SequenceRecord<'_> {
     }
 
     /// Returns the average PHRED quality score of the record
-    fn phred_quality_avg(&self) -> Option<f64> {
+    fn phred_quality_avg(&self) -> Option<f32> {
         let qual =
-            (self.phred_quality()?.into_iter().sum::<u32>() as f64) / (self.num_bases() as f64);
+            (self.phred_quality()?.into_iter().sum::<u32>() as f32) / (self.num_bases() as f32);
         // round to 2dp
         Some((qual * ROUND_PRECISION).round() / ROUND_PRECISION)
     }
@@ -36,8 +36,8 @@ impl QualityCompute for InMemorySequenceRecord {
     }
 
     /// Returns the average PHRED quality score of the record
-    fn phred_quality_avg(&self) -> Option<f64> {
-        let qual = (self.phred_quality()?.into_iter().sum::<u32>() as f64) / (self.len() as f64);
+    fn phred_quality_avg(&self) -> Option<f32> {
+        let qual = (self.phred_quality()?.into_iter().sum::<u32>() as f32) / (self.len() as f32);
         // round to 2dp
         Some((qual * ROUND_PRECISION).round() / ROUND_PRECISION)
     }

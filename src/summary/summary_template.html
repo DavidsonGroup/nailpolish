@@ -55,27 +55,36 @@
 
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.3.0/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
-        let stats = {{{ stats }}}
-        let data_old = stats.distribution;
+        // load DataLabels
+        Chart.register(ChartDataLabels);
+        Chart.defaults.set('plugins.datalabels', {
+          anchor: "end",
+          align: "end"
+        }); 
+
+        // example stats (injected from template or elsewhere):
+        let stats = {"1":{"count":10856,"avg_len":1047.4667,"avg_qual":21.1338},"2":{"count":814,"avg_len":991.3661,"avg_qual":21.254261},"3":{"count":354,"avg_len":962.8894,"avg_qual":21.131847},"4":{"count":115,"avg_len":959.9631,"avg_qual":21.23172},"5":{"count":23,"avg_len":896.48694,"avg_qual":21.386087},"6":{"count":2,"avg_len":1128.5834,"avg_qual":20.64},"10":{"count":1,"avg_len":942.9,"avg_qual":20.699001}}
+        // let stats = {{{ stats }}}
+
+        let readCount = {{{ read_count }}};
+
+        // extract the counts from stats
+        let distribution = Object.fromEntries(Object.entries(stats).map(([k, v]) => [Number(k), v["count"]]));
 
         const THRESHOLD = 50;
-        let distribution = Object.entries(stats.distribution);
-        let data = Object.fromEntries(
-            distribution
-                .filter(([key, _]) => (
-                    Number(key) < THRESHOLD
-                ))
+
+        // Convert stats object to array of entries for processing
+        const entries = Object.entries(distribution);
+
+        // Partition data based on the threshold
+        const graphedGroupData = Object.fromEntries(
+            Object.entries(distribution).filter(([key, _]) => key < THRESHOLD)
         );
 
-        let removed_data = Object.fromEntries(
-            distribution
-                .filter(([key, _]) => (
-                    Number(key) >= THRESHOLD
-                ))
-        )
-
-        let max_x = Math.max(...Object.keys(data).map((x) => Number(x)));
+        // Determine the highest key (converted to number) in the filtered data
+        const maxX = Math.max(...Object.keys(graphedGroupData));
     </script>
 </head>
 <body>
@@ -126,18 +135,18 @@
     </tr>
     <tr>
         <td>
-            matched reads
+            unfiltered reads
         </td>
         <td>
-            {{ matched_read_count }}
+            {{ unfiltered_read_count }}
         </td>
     </tr>
     <tr>
         <td>
-            unmatched reads
+            filtered reads<br />(ignored from consensus calling)
         </td>
         <td>
-            {{ unmatched_read_count }}
+            {{ filtered_read_count }}
         </td>
     </tr>
 
@@ -160,13 +169,12 @@
 </table>
 
 <h2>
-    By UMI group
+    By duplicate group
 </h2>
 
-A 'UMI group' is a group of reads which all share the same barcode and UMI.
+A 'duplicate group' is a group of reads which all share the same barcode and UMI.
 
-There are <span id="byUmiExtras">calculating...</span> total UMI group(s) with <span class="threshold-ind"></span>
-or more duplicates. These have not been included in the graph.
+There are <span id="groupCount">calculating...</span> total duplicate group(s). Only groups with &lt;<span class="threshold-ind"></span> duplicates are shown in the graph.
 
 <div class="bar-chart-container">
     <div>
@@ -178,10 +186,9 @@ or more duplicates. These have not been included in the graph.
     By read
 </h2>
 
-Each read is classified by the number of reads in its corresponding UMI group.
+Each read is classified by the number of reads in its corresponding duplicate group.
 
-There are <span id="byReadExtras">calculating...</span> total reads with <span class="threshold-ind"></span>
-or more duplicates. These have not been included in the graph.
+There are <span id="readCount">calculating...</span> total reads. Only reads belonging to groups with &lt;<span class="threshold-ind"></span> duplicates are shown in the graph.
 
 <div class="bar-chart-container">
     <div>
@@ -192,111 +199,93 @@ or more duplicates. These have not been included in the graph.
 
 
 <script>
+    const chartOptions = {
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'nearest',
+                axis: 'y'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                datalabels: {
+                  formatter: function(value, ctx) {
+                    let pct = value / readCount * 100;
+                    if (pct < 0.5) {
+                      return "< 0.5%";
+                    }
+                    return Math.round(pct*10)/10 + "%";
+                  }
+                }
+            },
+            responsive: true,
+            scales: {
+                x: {
+                    beginAtZero: true
+                },
+                y: {
+                    offset: true,
+                    min: 1,
+                    beginAtZero: true,
+                    reverse: true,
+                    title: "Duplicate count",
+                    type: "linear",
+                    ticks: {
+                      display: true,
+                      autoSkip: false,
+                      stepSize: 1,
+                      maxTicksLimit: 10000
+                    }
+                }
+            },
+            indexAxis: "y"
+        };
+
     let indicators = document.getElementsByClassName("threshold-ind");
     for (let elem of indicators) {
         elem.textContent = THRESHOLD;
     }
 
-    const umi_dup_data = {
-        "labels": Object.keys(data),
+    const group_dup_data = {
+        "labels": Object.keys(graphedGroupData),
         "datasets": [{
             label: "",
-            // "label": "duplicate count",
-            // "backgroundcolor": "rgba(75, 192, 192, 0.2)",
-            // "bordercolor": "rgba(75, 192, 192, 1)",
-            "data": Object.values(data).concat(
+            "data": Object.values(graphedGroupData).concat(
             )
         }]
     };
 
-    document.getElementById("byUmiExtras").textContent = Object.entries(removed_data).reduce((pSum, [_, v]) => pSum + v, 0)
-
     const ctxUmi = document.getElementById('byUmi').getContext('2d');
-    let umiChart = new Chart(ctxUmi, {
+    let groupChart = new Chart(ctxUmi, {
         type: 'bar',
-        data: umi_dup_data,
-        options: {
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'nearest',
-                axis: 'x'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-            },
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true
-                },
-                x: {
-                    grace: 0,
-                    offset: false,
-                    beginAtZero: true,
-                    title: "Duplicate count",
-                    type: "linear"
-                }
-            }
-        }
+        data: group_dup_data,
+        options: chartOptions
     });
 
-    let read_data = Object.fromEntries(Object.entries(data).map(([k, v]) => ([k, v * k])));
+    let graphedReadData = Object.fromEntries(Object.entries(graphedGroupData).map(([k, v]) => ([k, v * k])));
 
     const read_dup_data = {
-        "labels": Object.keys(read_data),
+        "labels": Object.keys(graphedReadData),
         "datasets": [{
             label: "",
-            // "label": "duplicate count",
-            // "backgroundcolor": "rgba(75, 192, 192, 0.2)",
-            // "bordercolor": "rgba(75, 192, 192, 1)",
-            "data": Object.values(read_data)
+            "data": Object.values(graphedReadData)
         }]
     };
-
-    document.getElementById("byReadExtras").textContent = Object.entries(removed_data).reduce((pSum, [k, v]) => pSum + v * Number(k), 0)
 
     const ctxRead = document.getElementById('byRead').getContext('2d');
     let readChart = new Chart(ctxRead, {
         type: 'bar',
         data: read_dup_data,
-        options: {
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'nearest',
-                axis: 'x'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-            },
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true
-                },
-                x: {
-                    grace: 0,
-                    offset: false,
-                    beginAtZero: true,
-                    title: "Duplicate count",
-                    type: "linear"
-                }
-            }
-        }
+        options: chartOptions
     });
 
+    document.getElementById("groupCount").textContent = Object.entries(graphedGroupData).reduce((pSum, [k, v]) => pSum + v * Number(k), 0);
+    document.getElementById("readCount").textContent = Object.entries(graphedReadData).reduce((pSum, [k, v]) => pSum + v * Number(k), 0);
 
-    umiChart.canvas.parentNode.style.height = '400px';
-    umiChart.canvas.parentNode.style.width = 15 * max_x + "px";
-
-
-    readChart.canvas.parentNode.style.height = '400px';
-    readChart.canvas.parentNode.style.width = 15 * max_x + "px";
+    groupChart.canvas.parentNode.style.height = 28 * maxX + "px";
+    readChart.canvas.parentNode.style.height = 28 * maxX + "px";
 </script>
 
 

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use count::count_index;
+use std::io::Write;
 
 use crate::io::index::IndexReader;
 mod count;
@@ -34,7 +35,23 @@ pub fn summarize(args: &crate::cli::SummaryArgs) -> Result<()> {
     );
 
     let index = index.load()?;
+    let mut file = std::fs::File::create_new(&summary_file)?;
 
-    let map = count_index(index);
-    todo!();
+    let stats = count_index(index);
+    let mut json = serde_json::json!(stats);
+    json["stats"] = serde_json::json!(serde_json::to_string(&stats.stats)?);
+    info!("Serde json: {json:?}");
+
+    // Use the handlebars crate to render the template with the stats
+    let mut handlebars = handlebars::Handlebars::new();
+    handlebars.set_strict_mode(true);
+
+    // Render the template
+    handlebars.register_template_string("summary", TEMPLATE_HTML)?;
+    let rendered_html = handlebars.render("summary", &json)?;
+
+    write!(file, "{}", rendered_html)?;
+    info!("Summary written to {}", summary_file.display());
+
+    Ok(())
 }

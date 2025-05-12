@@ -191,4 +191,10 @@ impl ArchivedIndex {
             Ok(Box::new(reader))
         }
     }
+
+    /// Provides access to the metadata of the index.
+    pub fn metadata(&self) -> IndexMetadata {
+        rkyv::deserialize::<IndexMetadata, rancor::Error>(&self.metadata)
+            .expect("Failed to deserialize metadata")
+    }
 }

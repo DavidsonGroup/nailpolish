@@ -21,12 +21,20 @@ spoa = { git = "https://github.com/olliecheng/spoa-rs" }
 thiserror = "1.0.64"
 predicates = "3.1.2"
 indoc = "2.0.5"
-rkyv = { version = "0.8.10", features = ["alloc", "bytecheck", "std", "indexmap-2", "smallvec-1"] }
+rkyv = { version = "0.8.10", features = [
+  "alloc",
+  "bytecheck",
+  "std",
+  "indexmap-2",
+  "smallvec-1",
+] }
 smallvec = "1.15.0"
 memmap = "0.7.0"
 bio = "2.2.0"
 itertools = "0.14.0"
 git-version = "0.3.9"
+serde = "1.0.219"
+serde_json = "1.0.140"
 
 [[bin]]
 name = "nailpolish"

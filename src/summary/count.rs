@@ -5,7 +5,7 @@ use crate::{
     utils,
 };
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct RowData {
     pub count: usize,
     pub avg_len: f32,
@@ -36,7 +36,7 @@ impl RowData {
     }
 }
 
-pub fn count_index(index: &ArchivedIndex) -> BTreeMap<usize, RowData> {
+pub fn count_index(index: &ArchivedIndex) -> IndexStatistics {
     debug!("Creating count index...");
     let mut map = BTreeMap::new();
 
@@ -48,5 +48,33 @@ pub fn count_index(index: &ArchivedIndex) -> BTreeMap<usize, RowData> {
     }
 
     debug!("Count index created: {:?}", map);
-    map
+
+    let metadata = index.metadata();
+
+    IndexStatistics {
+        nailpolish_version: metadata.nailpolish_version.clone(),
+        file_path: metadata.file_path.fastq().display().to_string(),
+        gb: metadata.gb as f32,
+        index_date: metadata.index_date.clone(),
+        read_count: metadata.total_reads,
+        unfiltered_read_count: metadata.normal_reads,
+        filtered_read_count: metadata.filtered_reads,
+        avg_qual: metadata.avg_qual,
+        avg_len: metadata.avg_len,
+        stats: map,
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct IndexStatistics {
+    pub nailpolish_version: String,
+    pub file_path: String,
+    pub gb: f32,
+    pub index_date: String,
+    pub read_count: usize,
+    pub unfiltered_read_count: usize,
+    pub filtered_read_count: usize,
+    pub avg_qual: f32,
+    pub avg_len: f32,
+    pub stats: BTreeMap<usize, RowData>,
 }

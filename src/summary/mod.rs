@@ -1,26 +1,23 @@
+//! Provides functionality for generating HTML summaries of index files.
+//! Uses a template-based approach with handlebars for rendering.
+
 use anyhow::Result;
 use count::count_index;
 use std::io::Write;
 
 use crate::io::index::IndexReader;
+
+// Internal module for counting statistics
 mod count;
 
-// encode the template HTML file at compile time as a string literal
+// Load the HTML template at compile time
 const TEMPLATE_HTML: &str = include_str!("summary_template.html");
 
-/// Summarizes the index and writes the output in HTML format to a file.
-///
-/// # Arguments
-///
-/// * `index` - A string slice that holds the path to the index file.
-/// * `output` - A string slice that holds the path to the output file.
-///
-/// # Returns
-///
-/// * `Result<()>` - Returns an `Ok(())` if successful, or an `anyhow::Error` if an error occurs.
+/// Generates an HTML summary report for the given index file.
 pub fn summarize(args: &crate::cli::SummaryArgs) -> Result<()> {
     let paths = crate::io::index::FileIndexPath::new(&args.input);
 
+    // try to open file
     let summary_file = args
         .output
         .clone()
@@ -28,6 +25,7 @@ pub fn summarize(args: &crate::cli::SummaryArgs) -> Result<()> {
 
     let index = IndexReader::new(&paths)?;
 
+    // report action
     info!(
         "Summarising {} → {}",
         paths.fastq().display(),
@@ -39,18 +37,22 @@ pub fn summarize(args: &crate::cli::SummaryArgs) -> Result<()> {
 
     let stats = count_index(index);
     let mut json = serde_json::json!(stats);
+
+    // we must convert this to a string so it imports correctly
     json["stats"] = serde_json::json!(serde_json::to_string(&stats.stats)?);
-    info!("Serde json: {json:?}");
+
+    debug!("serde_json: {json:?}");
 
     // Use the handlebars crate to render the template with the stats
     let mut handlebars = handlebars::Handlebars::new();
     handlebars.set_strict_mode(true);
 
     // Render the template
-    handlebars.register_template_string("summary", TEMPLATE_HTML)?;
-    let rendered_html = handlebars.render("summary", &json)?;
-
+    handlebars.register_template_string("t_summary", TEMPLATE_HTML)?;
+    let rendered_html = handlebars.render("t_summary", &json)?;
     write!(file, "{}", rendered_html)?;
+
+    // report result
     info!("Summary written to {}", summary_file.display());
 
     Ok(())

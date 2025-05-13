@@ -38,7 +38,7 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
         .num_threads(cli.threads + 1)
         .build_global()?;
 
-    let mut accessor = index.get_read_accessor()?;
+    let mut accessor = index.get_read_accessor(&paths)?;
     let buffer_size: usize = 500usize * cli.threads;
 
     let mut file_w = File::create_new(cli.output.clone())?;

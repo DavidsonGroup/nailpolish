@@ -176,18 +176,18 @@ impl ArchivedIndex {
     }
 
     /// Get an read accessor that can perform filesystem operations and read the original reads
-    pub fn get_read_accessor(&self) -> Result<Box<dyn GroupedReadsAccessor>> {
-        // this is a cheap one-off deserialize
-        let paths = rkyv::deserialize::<FileIndexPath, rancor::Error>(&self.metadata.file_path)?;
-
+    pub fn get_read_accessor(
+        &self,
+        index_path: &FileIndexPath,
+    ) -> Result<Box<dyn GroupedReadsAccessor>> {
         // for now, all reads are uncompressed
         let is_zlib_compressed = false;
         if is_zlib_compressed {
             todo!()
         } else {
-            let fastq_path = paths.fastq();
+            let fastq_path = index_path.fastq();
             let reader = UncompressedFileReader::new(fastq_path)
-                .with_context(|| format!("Error reading file {}", fastq_path.display()))?;
+                .with_context(|| format!("Error reading read file {}", fastq_path.display()))?;
             Ok(Box::new(reader))
         }
     }

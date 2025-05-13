@@ -16,7 +16,7 @@ use thiserror::Error;
 /// Constructs an index file for a FASTQ file, extracting barcodes and UMIs
 /// from read headers using either a regex pattern or a cluster file
 pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
-    let path = FileIndexPath::new(&cli.file);
+    let path = FileIndexPath::new(&cli.input);
 
     if path.index().exists() {
         if cli.overwrite {

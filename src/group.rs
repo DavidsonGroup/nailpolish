@@ -50,7 +50,7 @@ pub fn group(args: &crate::cli::GroupArgs) -> anyhow::Result<()> {
         .filter(|group| allowed_ids.contains(&group.id));
 
     let mut accessor = index
-        .get_read_accessor()
+        .get_read_accessor(&paths)
         .context("Failed to create read accessor")?;
 
     let mut writer: Box<dyn std::io::Write> = match args.output.as_ref() {

@@ -12,6 +12,7 @@ enum FileReadError {
     EmptyReadsProvided,
 }
 
+/// A reader that performs both sequential and random access reads from an uncompressed file
 pub struct UncompressedFileReader {
     seq: SequentialReader,
     rnd: RandomAccessReader,
@@ -56,6 +57,7 @@ pub trait SingleReadAccessor: Sized {
     }
 }
 
+/// A reader that performs random access reads from an uncompressed file
 pub struct RandomAccessReader {
     file: std::fs::File,
 }
@@ -80,6 +82,7 @@ impl SingleReadAccessor for RandomAccessReader {
     }
 }
 
+/// A reader that performs sequential reads from an uncompressed file using a buffered reader
 pub struct SequentialReader {
     reader: BufReader<std::fs::File>,
     position: u64,

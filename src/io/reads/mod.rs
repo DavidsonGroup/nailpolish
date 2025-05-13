@@ -4,7 +4,6 @@ pub mod uncompressed;
 use super::index::{ArchivedReadLocation, ReadLocationTrait};
 use crate::io::index::ReadLocation;
 pub use record::QualityCompute;
-use rkyv::Deserialize;
 
 use anyhow::Result;
 use bio::io::fastq::{self, FastqRead};
@@ -12,13 +11,18 @@ use std::io::Cursor;
 
 const BUF_CAPACITY: usize = 1024usize.pow(2);
 
-/// An in-memory sequence record which performs an allocation. Independent of read status.
+/// Read sequence record handling and loading.
+///
+/// Provides traits and types for working with FASTQ sequence records in memory.
 pub type InMemorySequenceRecord = bio::io::fastq::Record;
 
+/// Loads sequence records from raw bytes.
 pub trait RecordLoader: Sized {
+    /// Creates a new record from raw bytes.
     fn from_u8(buf: Vec<u8>) -> Result<Self>;
 }
 
+/// FASTQ record loader implementation.
 impl RecordLoader for bio::io::fastq::Record {
     fn from_u8(buf: Vec<u8>) -> Result<Self> {
         let cursor = Cursor::new(buf);

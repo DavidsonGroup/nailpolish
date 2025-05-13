@@ -1,45 +1,20 @@
+/// Index construction and read identifier parsing
 use super::filter::should_keep;
 use super::storage::FileIndexPath;
 use super::{DuplicateGroupKey, Index, ReadLocation, ReadLocationTrait, RecordIdentifier};
 use crate::io::reads::QualityCompute;
 
 use anyhow::{bail, Result};
-use std::fs::File;
-use std::io::{BufReader, Seek};
-use std::path::{Path, PathBuf};
-use thiserror::Error;
-
 use needletail::parser::SequenceRecord;
 use needletail::FastxReader;
 use regex::Regex;
+use std::fs::File;
+use std::io::{BufReader, Seek};
+use std::path::Path;
+use thiserror::Error;
 
-pub enum BarcodeLocation {
-    Regex(String),
-    ClusterFile(PathBuf),
-}
-
-/// Constructs an index from a FASTQ file and writes the results to an output file.
-///
-/// # Notes
-/// This method will create a temporary file in the directory of the output file, and the OS
-/// will automatically clean up this file after execution.
-///
-/// # Arguments
-///
-/// * `infile` - A string slice representing the path to the input FASTQ file.
-/// * `outfile` - A string slice representing the path to the output file.
-/// * `barcode_regex` - A string slice representing the regex pattern for extracting barcodes.
-/// * `skip_unmatched` - A boolean indicating whether to skip unmatched reads.
-/// * `clusters` - An optional string representing the path to the cluster file.
-///
-/// # Returns
-///
-/// Returns a `Result` indicating success or failure.
-///
-/// # Errors
-///
-/// This function will return an error if reading from the input file, writing to the output file,
-/// or processing the data fails.
+/// Constructs an index file for a FASTQ file, extracting barcodes and UMIs
+/// from read headers using either a regex pattern or a cluster file
 pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
     let path = FileIndexPath::new(&cli.file);
 
@@ -99,25 +74,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
     Ok(())
 }
 
-/// Iterates over lines in a FASTQ file, extracting barcodes using a regex
-/// and writing the results to a CSV writer.
-///
-/// # Arguments
-///
-/// * `reader` - A `BufReader` for the input FASTQ file.
-/// * `wtr` - A mutable reference to a CSV writer.
-/// * `re` - A reference to a `Regex` for extracting barcodes from read headers.
-/// * `skip_invalid_ids` - A boolean indicating whether to skip invalid IDs.
-/// * `info` - A mutable `FastqFile` struct containing information about the FASTQ file.
-///
-/// # Returns
-///
-/// Returns a `Result` containing an updated `FastqFile` struct which contains information about
-/// the file that was just read.
-///
-/// # Errors
-///
-/// This function will return an error if reading from the FASTQ file or writing to the CSV writer fails.
+/// Process FASTQ reads using a regex to extract identifiers from headers
 fn iter_lines_with_regex<F>(
     reader: &mut BufReader<File>,
     re: &regex::Regex,
@@ -164,31 +121,9 @@ where
 
         callback(read_location, barcode_location, rec)?;
     }
-
-    // wtr.finish_read((fastq_reader.position().byte() as f64) / (1024u32.pow(3) as f64));
     Ok(())
 }
 
-/// Iterates over lines in a FASTQ file, matching read identifiers with a cluster file instead of
-/// a header format, and writing the results to a CSV writer.
-///
-/// # Arguments
-///
-/// * `reader` - A `BufReader` for the input FASTQ file.
-/// * `wtr` - A mutable reference to a CSV writer.
-/// * `clusters` - A mutable reference to a CSV reader for the cluster file.
-/// * `skip_invalid_ids` - A boolean indicating whether to skip invalid IDs.
-/// * `info` - A mutable `FastqFile` struct containing information about the FASTQ file.
-///
-/// # Returns
-///
-/// Returns a `Result` containing an updated `FastqFile` struct which contains information about
-/// the file that was just read.
-///
-/// # Errors
-///
-/// This function will return an error if reading from the FASTQ file, reading from the cluster file,
-/// or writing to the CSV writer fails.
 fn iter_lines_with_cluster_file(
     reader: BufReader<File>,
     // wtr: &mut IndexWriter,
@@ -262,22 +197,8 @@ fn iter_lines_with_cluster_file(
      */
 }
 
-/// Extracts barcodes from a read header using a regex pattern.
-///
-/// # Arguments
-///
-/// * `header` - A string slice representing the read header.
-/// * `re` - A reference to a `Regex` for extracting barcodes from the header.
-/// * `pos` - The position of the read.
-///
-/// # Returns
-///
-/// Returns a `Result` containing a tuple with the number of captures and the
-/// concatenated barcode string (identifier).
-///
-/// # Errors
-///
-/// This function will return an error if the regex does not match the header.
+/// Extract identifier components from a read header using a regex pattern
+/// Returns the number of captures and the constructed identifier
 fn extract_header_id(header: &str, re: &Regex, pos: usize) -> Result<(usize, RecordIdentifier)> {
     let Some(captures) = re.captures(header) else {
         bail!(IndexGenerationErr::NoMatch {
@@ -297,6 +218,7 @@ fn extract_header_id(header: &str, re: &Regex, pos: usize) -> Result<(usize, Rec
     Ok((captures.len(), RecordIdentifier::from_recs(&captures)))
 }
 
+/// Errors that can occur during index generation
 #[derive(Error, Debug)]
 enum IndexGenerationErr {
     #[error(

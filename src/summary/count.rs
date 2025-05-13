@@ -36,7 +36,7 @@ impl RowData {
     }
 }
 
-pub fn count_index(index: &ArchivedIndex) -> IndexStatistics {
+pub fn summarize_index(index: &ArchivedIndex) -> IndexStatistics {
     debug!("Creating count index...");
     let mut map = BTreeMap::new();
 
@@ -65,16 +65,27 @@ pub fn count_index(index: &ArchivedIndex) -> IndexStatistics {
     }
 }
 
+/// Statistics generated from analyzing a FASTQ index
 #[derive(serde::Serialize)]
 pub struct IndexStatistics {
+    /// Version of nailpolish used to generate the index
     pub nailpolish_version: String,
+    /// Path to the indexed FASTQ file
     pub file_path: String,
+    /// Size of the file in gigabytes
     pub gb: f32,
+    /// Date when the index was created
     pub index_date: String,
+    /// Total number of reads
     pub read_count: usize,
+    /// Number of reads before filtering
     pub unfiltered_read_count: usize,
+    /// Number of reads after filtering
     pub filtered_read_count: usize,
+    /// Average read quality score
     pub avg_qual: f32,
+    /// Average read length
     pub avg_len: f32,
+    /// Statistics grouped by number of reads
     pub stats: BTreeMap<usize, RowData>,
 }

@@ -1,3 +1,4 @@
+/// A numeric interval with a minimum and maximum bound
 #[derive(Copy, Clone, Debug)]
 pub struct ArgInterval {
     pub min: f32,
@@ -16,6 +17,7 @@ impl std::fmt::Display for ParseIntervalErr {
 
 impl std::error::Error for ParseIntervalErr {}
 
+/// Parses a string in the format "min,max" into an interval. Supports "inf" and "-inf"
 impl<'a> TryFrom<&'a str> for ArgInterval {
     type Error = ParseIntervalErr;
 
@@ -59,6 +61,7 @@ impl<'a> TryFrom<&'a str> for ArgInterval {
 }
 
 impl ArgInterval {
+    /// Tests if a value lies within the interval (exclusive bounds)
     pub fn contains(&self, v: f32) -> bool {
         let v = v;
         (self.min < v) && (v < self.max)

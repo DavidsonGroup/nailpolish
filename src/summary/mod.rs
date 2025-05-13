@@ -2,7 +2,7 @@
 //! Uses a template-based approach with handlebars for rendering.
 
 use anyhow::Result;
-use count::count_index;
+use count::summarize_index;
 use std::io::Write;
 
 use crate::io::index::IndexReader;
@@ -35,7 +35,7 @@ pub fn summarize(args: &crate::cli::SummaryArgs) -> Result<()> {
     let index = index.load()?;
     let mut file = std::fs::File::create_new(&summary_file)?;
 
-    let stats = count_index(index);
+    let stats = summarize_index(index);
     let mut json = serde_json::json!(stats);
 
     // we must convert this to a string so it imports correctly

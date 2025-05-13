@@ -1,3 +1,4 @@
+/// Consensus calling implementation for duplicate read groups
 use crate::cli::ConsensusArgs;
 use crate::io::index::{ArchivedDuplicateGroup, FileIndexPath, IndexReader};
 
@@ -14,22 +15,7 @@ use spoa::{AlignmentEngine, AlignmentType};
 
 mod formatter;
 
-/// Generates consensus sequences from the input in a thread-stable manner.
-///
-/// # Arguments
-///
-/// * `input` - A string slice that holds the path to the input file.
-/// * `writer` - A mutable reference to an object that implements the `Write` trait,
-///   used for writing the output.
-/// * `duplicates` - A `DuplicateMap` containing the duplicate reads.
-/// * `threads` - The number of threads to use for parallel processing.
-/// * `duplicates_only` - A boolean indicating whether to process only duplicate reads.
-/// * `output_originals` - A boolean indicating whether to include the original reads in the output.
-///
-/// # Returns
-///
-/// * `Result<()>` - Returns `Ok(())` if successful, or an error if an error occurs
-///   during processing.
+/// Generate consensus sequences from duplicate read groups
 pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     let paths = FileIndexPath::new(&cli.input);
     let index_rdr = IndexReader::new(&paths)?;
@@ -89,6 +75,7 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     Ok(())
 }
 
+/// Generates a consensus sequence for a group of reads, or returns the single read if no duplicates exist
 fn consensus_call(
     group: &ArchivedDuplicateGroup,
     reads: &Vec<Record>,

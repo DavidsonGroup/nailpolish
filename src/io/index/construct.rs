@@ -116,7 +116,7 @@ where
 
                 DuplicateGroupKey::Normal(id)
             }
-            Err(e) => DuplicateGroupKey::Invalid(read_location.pos()),
+            Err(_e) => DuplicateGroupKey::Invalid(read_location.pos()),
         };
 
         callback(read_location, barcode_location, rec)?;

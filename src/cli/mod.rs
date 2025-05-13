@@ -1,7 +1,6 @@
-use bio::io::fasta::Index;
 use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
-use clap::{value_parser, Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use git_version::git_version;
 use std::path::PathBuf;
 
@@ -174,5 +173,13 @@ pub struct GroupArgs {
 
     /// the output .fastq
     #[arg(short, long)]
-    pub output: PathBuf,
+    pub output: Option<PathBuf>,
+
+    /// Filter by specific group IDs (comma-separated)
+    #[arg(long, conflicts_with = "key")]
+    pub id: Option<String>,
+
+    /// Filter by regex pattern for the key
+    #[arg(long, conflicts_with = "index")]
+    pub key: Option<String>,
 }

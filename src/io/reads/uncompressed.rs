@@ -39,12 +39,16 @@ impl GroupedReadsAccessor for UncompressedFileReader {
         // create the remaining reads
         let mut result = Vec::with_capacity(len);
         result.push(first_read);
-        for rem in tail {
-            let read = self.rnd.fetch(rem)?;
-            result.push(read);
-        }
+        result.extend(self.fetch_reads_random(tail)?);
 
         Ok(result)
+    }
+
+    fn fetch_reads_random(
+        &mut self,
+        reads: &[ReadLocation],
+    ) -> Result<Vec<InMemorySequenceRecord>> {
+        reads.iter().map(|loc| self.rnd.fetch(loc)).collect()
     }
 }
 

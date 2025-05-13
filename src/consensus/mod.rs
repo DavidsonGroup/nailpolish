@@ -58,8 +58,8 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
         // perform the parallel consensus call
         let output: Vec<String> = input
             .par_iter()
-            .map(|(g, v)| consensus_call(g, v, &cli))
-            .collect();
+            .map(|(g, v)| consensus_call(g, v, cli))
+            .collect::<Result<Vec<_>>>()?;
 
         // perform the write operations
         if first {
@@ -80,8 +80,10 @@ fn consensus_call(
     group: &ArchivedDuplicateGroup,
     reads: &Vec<Record>,
     args: &ConsensusArgs,
-) -> String {
+) -> Result<String> {
     let mut header = formatter::make_consensus_header(group, reads, args);
+
+    let mut result = String::new();
 
     if reads.len() == 1 {
         // simplex read
@@ -90,8 +92,20 @@ fn consensus_call(
         let seq = unsafe { std::str::from_utf8_unchecked(read.seq()) };
         let qual = unsafe { std::str::from_utf8_unchecked(read.qual()) };
 
-        format!("@{}\n{}\n+\n{}", header, seq, qual)
+        write!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
     } else {
+        // should we report the original reads first?
+        if args.report_original_reads {
+            for (idx, read) in reads.iter().enumerate() {
+                let header = formatter::make_original_header(group, read, idx, args);
+
+                let seq = std::str::from_utf8(read.seq())?;
+                let qual = std::str::from_utf8(read.qual())?;
+
+                writeln!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
+            }
+        }
+
         // consensus call
         let start_time = Instant::now();
 
@@ -112,12 +126,14 @@ fn consensus_call(
         let consensus = poa_graph.consensus_with_quality();
 
         if args.debugging_header {
-            write!(header, "|elapsed_us={}", start_time.elapsed().as_micros()).unwrap();
+            write!(header, "|elapsed_us={}", start_time.elapsed().as_micros())?;
         }
 
         let seq = &consensus.sequence;
         let qual = &consensus.quality;
 
-        format!("@{}\n{}\n+\n{}", header, seq, qual)
+        write!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
     }
+
+    Ok(result)
 }

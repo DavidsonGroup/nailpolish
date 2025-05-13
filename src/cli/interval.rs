@@ -63,7 +63,6 @@ impl<'a> TryFrom<&'a str> for ArgInterval {
 impl ArgInterval {
     /// Tests if a value lies within the interval (exclusive bounds)
     pub fn contains(&self, v: f32) -> bool {
-        let v = v;
         (self.min < v) && (v < self.max)
     }
 }

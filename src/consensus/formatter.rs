@@ -1,5 +1,6 @@
 use crate::io::index::ArchivedDuplicateGroupKey;
 use crate::{cli::ConsensusArgs, io::index::ArchivedDuplicateGroup};
+use std::fmt::Write as StrWrite;
 
 use bio::io::fastq::Record;
 
@@ -9,7 +10,7 @@ pub fn make_consensus_header(
     args: &ConsensusArgs,
 ) -> String {
     let len = group.reads.len();
-    let id = group.index;
+    let id = group.id;
     let single = len == 1;
 
     let type_ = match group.key {
@@ -43,6 +44,33 @@ pub fn make_consensus_header(
         // truncate the final character to remove the extra ','
         params.truncate(params.len() - 1);
         params.push(']');
+    };
+
+    params
+}
+
+/// Generates a header string for an original read in a duplicate group.
+/// Includes original header if requested in args.
+/// `read_idx` should be 0-indexed.
+pub fn make_original_header(
+    group: &ArchivedDuplicateGroup,
+    read: &Record,
+    read_idx: usize,
+    args: &ConsensusArgs,
+) -> String {
+    let id = group.id;
+    let size = group.reads.len();
+    let read_pos = read_idx + 1;
+
+    let key = match group.key {
+        ArchivedDuplicateGroupKey::Normal(id) => id.to_string(),
+        _ => todo!(),
+    };
+
+    let mut params = format!("{key}|id={id}.{read_pos}|type=orig_{read_pos}_of_{size}");
+
+    if args.report_original_header {
+        write!(params, "|orig_header={}", read.id()).unwrap();
     };
 
     params

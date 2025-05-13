@@ -25,11 +25,11 @@ impl RowData {
         self.count += 1;
 
         let len = utils::complete_avg(group.reads.iter().map(|v| {
-            let res: u32 = v.seq_len.try_into().unwrap();
+            let res: u32 = v.seq_len.into();
             res as f32
         }));
 
-        let qual = utils::complete_avg(group.reads.iter().map(|v| v.qual.try_into().unwrap()));
+        let qual = utils::complete_avg(group.reads.iter().map(|v| v.qual.into()));
 
         self.avg_len = utils::running_avg(self.avg_len, len, self.count);
         self.avg_qual = utils::running_avg(self.avg_qual, qual, self.count);

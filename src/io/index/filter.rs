@@ -14,8 +14,8 @@ impl FilterOpts {
     /// Creates new filter options from command line arguments
     pub fn new(cli: &crate::cli::IndexArgs) -> Self {
         Self {
-            len: cli.len.clone(),
-            quality: cli.qual.clone(),
+            len: cli.len,
+            quality: cli.qual,
         }
     }
 }

@@ -6,7 +6,7 @@
 
 use crate::io::index::{ArchivedIndex, Index};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
@@ -15,7 +15,6 @@ use memmap::Mmap;
 use rkyv::{api::high::to_bytes_in, rancor};
 
 pub struct IndexReader {
-    file: FileIndexPath,
     mmap: Mmap,
 }
 
@@ -27,10 +26,7 @@ impl IndexReader {
         let file_obj = File::open(file.index())?;
         let mmap = unsafe { Mmap::map(&file_obj)? };
 
-        Ok(Self {
-            file: file.clone(),
-            mmap,
-        })
+        Ok(Self { mmap })
     }
 
     /// Load the index file into an ArchivedIndex object. This is currently a zero-copy operation due to the use of rkyv.

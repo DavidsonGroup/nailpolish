@@ -62,7 +62,7 @@ pub struct DuplicateGroup<'a> {
 pub struct ArchivedDuplicateGroup<'a> {
     pub key: &'a ArchivedDuplicateGroupKey,
     pub reads: &'a ArchivedVec<ArchivedReadLocation>,
-    pub index: usize,
+    pub id: usize,
 }
 
 /// Represents the index of a duplicate group.
@@ -171,7 +171,7 @@ impl ArchivedIndex {
             .map(|(index, (key, value))| ArchivedDuplicateGroup {
                 key,
                 reads: value,
-                index,
+                id: index,
             })
     }
 

@@ -112,7 +112,7 @@ impl FileIndexPath {
 fn compute_index_path(file: &Path) -> PathBuf {
     let index = file.to_path_buf();
 
-    // if the original extension is ".fastq", the new one should be ".fastq.idx"
+    // if the original extension is ".fastq", the new one should be ".fastq.nailpolish.idx"
     let mut extension = file.extension().unwrap_or_default().to_os_string();
     extension.push(".nailpolish.idx");
 

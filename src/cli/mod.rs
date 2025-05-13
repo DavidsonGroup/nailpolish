@@ -71,7 +71,7 @@ pub enum Commands {
 /// Create an index file from a demultiplexed .fastq
 pub struct IndexArgs {
     /// the input .fastq file
-    pub file: PathBuf,
+    pub input: PathBuf,
 
     /// overwrite an existing index file, if it exists
     #[arg(long, action)]
@@ -180,6 +180,6 @@ pub struct GroupArgs {
     pub id: Option<String>,
 
     /// Filter by regex pattern for the key
-    #[arg(long, conflicts_with = "index")]
+    #[arg(long, conflicts_with = "id")]
     pub key: Option<String>,
 }

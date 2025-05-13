@@ -58,19 +58,11 @@ pub fn group(args: &crate::cli::GroupArgs) -> anyhow::Result<()> {
         None => Box::new(std::io::stdout()),
     };
 
-    let mut first = true;
-
     for group in allowed_groups {
         let reads = accessor.fetch_reads_random_archived(group.reads)?;
 
         for read in reads.iter() {
-            if first {
-                first = false
-            } else {
-                write!(writer, "\n");
-            }
-
-            write!(writer, "{}", read.to_string());
+            write!(writer, "{}", read.to_string())?;
         }
     }
 

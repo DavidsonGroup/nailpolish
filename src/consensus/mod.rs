@@ -42,7 +42,6 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     let buffer_size: usize = 500usize * cli.threads;
 
     let mut file_w = File::create_new(cli.output.clone())?;
-    let mut first = true;
 
     for chunk in &index.groups().chunks(buffer_size) {
         // perform the read operations
@@ -61,15 +60,9 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
             .map(|(g, v)| consensus_call(g, v, cli))
             .collect::<Result<Vec<_>>>()?;
 
-        // perform the write operations
-        if first {
-            first = false
-        } else {
-            file_w.write_all(b"\n")?;
+        for elem in output.iter() {
+            writeln!(file_w, "{}", elem)?;
         }
-
-        let output_str = output.join("\n");
-        file_w.write_all(output_str.as_bytes())?;
     }
 
     Ok(())

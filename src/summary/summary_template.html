@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Nailpolish Summary Report</title>
+    <style>
+        /* Global styles */
+        html {
+            background-color: #beabc2;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            margin: auto;
+            max-width: 800px;
+            min-height: 100%;
+            background-color: white;
+        }
+        
+        /* Table styles */
+        td {
+            vertical-align: top;
+        }
+
+        td:nth-child(1) {
+            min-width: 150px;
+        }
+
+        td:nth-child(2) {
+            font-family: monospace;
+            padding-left: 10px;
+            font-size: 1.1em;
+        }
+        
+        /* Chart styles */
+        canvas {
+            margin-top: 20px;
+        }
+
+        .bar-chart-container {
+            overflow: scroll;
+        }
+
+        /* Scrollbar styles */
+        ::-webkit-scrollbar {
+            -webkit-appearance: none;
+            width: 7px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            border-radius: 4px;
+            background-color: rgba(0, 0, 0, .5);
+            box-shadow: 0 0 1px rgba(255, 255, 255, .5);
+        }
+    </style>
+    <!-- Chart.js libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.3.0/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script>
+        // Initialize Chart.js with DataLabels plugin
+        Chart.register(ChartDataLabels);
+        Chart.defaults.set('plugins.datalabels', {
+          anchor: "end",
+          align: "end"
+        });
+
+        // Data is injected from the template
+        // Example format:
+        // stats = {"1":{"count":10856,"avg_len":1047.4667,"avg_qual":21.1338},"2":{"count":814,"avg_len":991.3661,"avg_qual":21.254261},etc.}
+        let stats = {{{ stats }}}
+        let readCount = {{{ read_count }}};
+
+        // Constants and data preparation
+        const THRESHOLD = 50;
+        
+        // Extract the counts from stats and convert keys to numbers
+        let distribution = Object.fromEntries(
+            Object.entries(stats).map(([k, v]) => [Number(k), v["count"]])
+        );
+
+        // Filter data to only show groups below the threshold
+        const graphedGroupData = Object.fromEntries(
+            Object.entries(distribution).filter(([key, _]) => Number(key) < THRESHOLD)
+        );
+
+        // Get the maximum group size for chart height calculation
+        const maxX = Math.max(...Object.keys(graphedGroupData).map(Number));
+    </script>
+</head>
+<body>
+<h1>💅 Nailpolish Summary Report</h1>
+<h2>Summary table</h2>
+<table>
+    <tr>
+        <td>Nailpolish version</td>
+        <td>{{ nailpolish_version }}</td>
+    </tr>
+    <tr>
+        <td>File path</td>
+        <td>{{ file_path }}</td>
+    </tr>
+    <tr>
+        <td>Dataset size</td>
+        <td>{{ gb }} GB</td>
+    </tr>
+    <tr>
+        <td>Index date</td>
+        <td>{{ index_date }}</td>
+    </tr>
+    <tr>
+        <td>Total read count</td>
+        <td>{{ read_count }}</td>
+    </tr>
+    <tr>
+        <td>Unfiltered reads</td>
+        <td>{{ unfiltered_read_count }}</td>
+    </tr>
+    <tr>
+        <td>Filtered reads<br />(ignored from consensus calling)</td>
+        <td>{{ filtered_read_count }}</td>
+    </tr>
+    <tr>
+        <td>Average quality</td>
+        <td>{{ avg_qual }}</td>
+    </tr>
+    <tr>
+        <td>Average length</td>
+        <td>{{ avg_len }}</td>
+    </tr>
+</table>
+
+<h2>By duplicate group</h2>
+
+<p>A 'duplicate group' is a group of reads which all share the same barcode and UMI.</p>
+
+<p>There are <span id="groupCount">calculating...</span> total duplicate group(s). Only groups with &lt;<span class="threshold-ind"></span> duplicates are shown in the graph.</p>
+
+<div class="bar-chart-container">
+    <div>
+        <canvas id="byUmi"></canvas>
+    </div>
+</div>
+
+<h2>By read</h2>
+
+<p>Each read is classified by the number of reads in its corresponding duplicate group.</p>
+
+<p>There are <span id="readCount">calculating...</span> total reads. Only reads belonging to groups with &lt;<span class="threshold-ind"></span> duplicates are shown in the graph.</p>
+
+<div class="bar-chart-container">
+    <div>
+        <canvas id="byRead"></canvas>
+    </div>
+</div>
+
+
+
+<script>
+    /**
+     * Chart.js configuration shared between both charts
+     */
+    const chartOptions = {
+        maintainAspectRatio: false,
+        interaction: {
+            intersect: false,
+            mode: 'nearest',
+            axis: 'y'
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            datalabels: {
+                formatter: function(value, ctx) {
+                    let pct = value / readCount * 100;
+                    if (pct < 0.5) {
+                        return "< 0.5%";
+                    }
+                    return Math.round(pct*10)/10 + "%";
+                }
+            }
+        },
+        responsive: true,
+        scales: {
+            x: {
+                beginAtZero: true
+            },
+            y: {
+                offset: true,
+                min: 1,
+                beginAtZero: true,
+                reverse: true,
+                title: "Duplicate count",
+                type: "linear",
+                ticks: {
+                    display: true,
+                    autoSkip: false,
+                    stepSize: 1,
+                    maxTicksLimit: 10000
+                }
+            }
+        },
+        indexAxis: "y"
+    };
+
+    // Set threshold indicator values
+    document.querySelectorAll('.threshold-ind').forEach(elem => {
+        elem.textContent = THRESHOLD;
+    });
+
+    /**
+     * Create and render the "By duplicate group" chart
+     */
+    function createGroupChart() {
+        const group_dup_data = {
+            "labels": Object.keys(graphedGroupData),
+            "datasets": [{
+                label: "Group count",
+                "data": Object.values(graphedGroupData)
+            }]
+        };
+
+        const ctxUmi = document.getElementById('byUmi').getContext('2d');
+        let groupChart = new Chart(ctxUmi, {
+            type: 'bar',
+            data: group_dup_data,
+            options: chartOptions
+        });
+        
+        // Set chart height based on data
+        groupChart.canvas.parentNode.style.height = 28 * maxX + "px";
+        
+        // Update count display
+        const totalGroups = Object.entries(graphedGroupData)
+            .reduce((pSum, [k, v]) => pSum + v, 0);
+        document.getElementById("groupCount").textContent = totalGroups;
+        
+        return groupChart;
+    }
+
+    /**
+     * Create and render the "By read" chart
+     */
+    function createReadChart() {
+        // Create read data by multiplying group sizes by counts
+        let graphedReadData = Object.fromEntries(
+            Object.entries(graphedGroupData).map(([k, v]) => ([k, v * Number(k)]))
+        );
+
+        const read_dup_data = {
+            "labels": Object.keys(graphedReadData),
+            "datasets": [{
+                label: "Read count",
+                "data": Object.values(graphedReadData)
+            }]
+        };
+
+        const ctxRead = document.getElementById('byRead').getContext('2d');
+        let readChart = new Chart(ctxRead, {
+            type: 'bar',
+            data: read_dup_data,
+            options: chartOptions
+        });
+        
+        // Set chart height based on data
+        readChart.canvas.parentNode.style.height = 28 * maxX + "px";
+        
+        // Update count display
+        const totalReads = Object.entries(graphedReadData)
+            .reduce((pSum, [k, v]) => pSum + v, 0);
+        document.getElementById("readCount").textContent = totalReads;
+        
+        return readChart;
+    }
+
+    // Initialize charts
+    const groupChart = createGroupChart();
+    const readChart = createReadChart();
+</script>
+
+
+<!-- Results Table -->
+<h2>Tabulated duplicate groups</h2>
+<table id="tb-data">
+    <thead>
+        <tr>
+            <th>Group Size</th>
+            <th>Number of Groups</th>
+            <th>Number of Reads</th>
+            <th>Average Length</th>
+            <th>Average Quality</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<style>
+    /* Results table styling */
+    #tb-data {
+        font-family: monospace;
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        margin-top: 20px;
+    }
+
+    #tb-data th, #tb-data td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+
+    #tb-data th {
+        font-weight: bold;
+        background-color: #f2f2f2;
+    }
+
+    #tb-data td:first-child, #tb-data th:first-child {
+        width: 80px;
+    }
+    
+    #tb-data tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    
+    #tb-data tr:hover {
+        background-color: #f1f1f1;
+    }
+</style>
+
+<script>
+    /**
+     * Populate the results table with data from stats
+     */
+    function populateResultsTable() {
+        const table = document.getElementById("tb-data");
+        const tbody = table.querySelector("tbody");
+        
+        // Format number with 2 decimal places
+        const formatNumber = (num) => Number(num).toFixed(2);
+        
+        // Sort entries by group size (key)
+        const entries = Object.entries(stats).sort((a, b) => Number(a[0]) - Number(b[0]));
+        
+        for (const [k, v] of entries) {
+            const count = Number(k);
+            const num_groups = v["count"];
+            const num_reads = num_groups * count;
+            const avg_len = formatNumber(v["avg_len"]);
+            const avg_qual = formatNumber(v["avg_qual"]);
+
+            let row = tbody.insertRow();
+            row.innerHTML = `
+                <td>${count}</td>
+                <td>${num_groups}</td>
+                <td>${num_reads}</td>
+                <td>${avg_len}</td>
+                <td>${avg_qual}</td>
+            `;
+        }
+    }
+    
+    // Initialize the results table
+    populateResultsTable();
+</script>
+</body>
+</html>

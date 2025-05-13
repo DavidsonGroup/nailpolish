@@ -1,43 +1,68 @@
-use crate::duplicates::DuplicateMap;
-use crate::io::{ReadType, UMIGroupCollection};
+use crate::io::index::{ArchivedDuplicateGroupKey, FileIndexPath, IndexReader};
 
-use std::io::prelude::*;
+use anyhow::{Context, Result};
 
-use anyhow::Result;
+pub fn group(args: &crate::cli::GroupArgs) -> anyhow::Result<()> {
+    let paths = FileIndexPath::new(&args.input);
+    let index_rdr = IndexReader::new(&paths)?;
 
-/// Adds tags to duplicate reads from the input to show what group they are in.
-///
-/// # Arguments
-///
-/// * `input` - A string slice that holds the name of the input file.
-/// * `writer` - A mutable reference to an object that implements the `Write` trait, used to write the output.
-/// * `duplicates` - A `DuplicateMap` containing the duplicate reads.
-///
-/// # Returns
-///
-/// * `Result<()>` - Returns `Ok(())` if successful, or an error if an error occurs during processing.
-pub fn group(collection: &mut UMIGroupCollection, writer: &mut impl Write) -> Result<()> {
-    let mut duplicate_iterator = collection.stream_iter(false);
+    info!(
+        "Grouping reads from {} using index {} → {}",
+        paths.fastq().display(),
+        paths.index().display(),
+        args.output
+            .as_ref()
+            .map_or("stdout".to_string(), |v| v.display().to_string())
+    );
 
-    let mut count = 0usize;
+    let index = index_rdr.load()?;
 
-    let mut first = true;
-    while let Some(mut group) = duplicate_iterator.next()? {
-        count += 1;
-        if count % 500000 == 0 {
-            info!("Processed: {} reads", count);
-        }
+    let allowed_ids = if let Some(id_str) = &args.id {
+        id_str
+            .split(',')
+            .map(|s| {
+                let trimmed = s.trim();
+                trimmed.parse::<usize>()
+            })
+            .collect::<Result<Vec<usize>, std::num::ParseIntError>>()
+            .context("Invalid ID string")?
+    } else if let Some(key) = &args.key {
+        let re = regex::Regex::new(key)?;
 
-        let group_size = group.records.len();
-        for (idx, rec) in group.records.iter_mut().enumerate() {
-            if first {
-                first = false
-            } else {
-                writer.write_all(b"\n")?
-            }
+        index
+            .groups()
+            .filter_map(|group| {
+                if let ArchivedDuplicateGroupKey::Normal(k) = group.key {
+                    if re.is_match(&k.0) {
+                        return Some(group.id);
+                    }
+                }
 
-            rec.add_metadata(group.index, ReadType::Original, idx + 1, group_size, 0.0);
-            rec.write_fastq(writer)?;
+                None
+            })
+            .collect()
+    } else {
+        anyhow::bail!("No key or ID is passed")
+    };
+
+    let allowed_groups = index
+        .groups()
+        .filter(|group| allowed_ids.contains(&group.id));
+
+    let mut accessor = index
+        .get_read_accessor(&paths)
+        .context("Failed to create read accessor")?;
+
+    let mut writer: Box<dyn std::io::Write> = match args.output.as_ref() {
+        Some(v) => Box::new(std::fs::File::create(v)?),
+        None => Box::new(std::io::stdout()),
+    };
+
+    for group in allowed_groups {
+        let reads = accessor.fetch_reads_random_archived(group.reads)?;
+
+        for read in reads.iter() {
+            write!(writer, "{}", read.to_string())?;
         }
     }
 

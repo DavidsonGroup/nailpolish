@@ -2,7 +2,6 @@
 
 [![Build status](https://github.com/olliecheng/nailpolish/actions/workflows/build.yml/badge.svg)](https://github.com/olliecheng/nailpolish/actions/workflows/build.yml) ![Static Badge](https://img.shields.io/badge/libc-%E2%89%A5%202.17-blue) ![GitHub Release](https://img.shields.io/github/v/release/olliecheng/nailpolish?include_prereleases)
 
-
 `nailpolish` is a collection of tools made for the deduplication of UMIs when working with long read single cell data.
 
 <div align="center">
@@ -50,7 +49,7 @@ $ nailpolish summary --index index.tsv
 and I can also transparently remove duplicate reads using:
 
 ```sh
-$ nailpolish call \
+$ nailpolish consensus \
   --index index.tsv \
   --input sample.fastq \
   --output sample_called.fastq \

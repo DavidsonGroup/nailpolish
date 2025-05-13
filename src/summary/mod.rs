@@ -1,0 +1,59 @@
+//! Provides functionality for generating HTML summaries of index files.
+//! Uses a template-based approach with handlebars for rendering.
+
+use anyhow::Result;
+use count::summarize_index;
+use std::io::Write;
+
+use crate::io::index::IndexReader;
+
+// Internal module for counting statistics
+mod count;
+
+// Load the HTML template at compile time
+const TEMPLATE_HTML: &str = include_str!("summary_template.html");
+
+/// Generates an HTML summary report for the given index file.
+pub fn summarize(args: &crate::cli::SummaryArgs) -> Result<()> {
+    let paths = crate::io::index::FileIndexPath::new(&args.input);
+
+    // try to open file
+    let summary_file = args
+        .output
+        .clone()
+        .unwrap_or_else(|| paths.fastq().with_extension("summary.html"));
+
+    let index = IndexReader::new(&paths)?;
+
+    // report action
+    info!(
+        "Summarising {} → {}",
+        paths.fastq().display(),
+        summary_file.display()
+    );
+
+    let index = index.load()?;
+    let mut file = std::fs::File::create_new(&summary_file)?;
+
+    let stats = summarize_index(index);
+    let mut json = serde_json::json!(stats);
+
+    // we must convert this to a string so it imports correctly
+    json["stats"] = serde_json::json!(serde_json::to_string(&stats.stats)?);
+
+    debug!("serde_json: {json:?}");
+
+    // Use the handlebars crate to render the template with the stats
+    let mut handlebars = handlebars::Handlebars::new();
+    handlebars.set_strict_mode(true);
+
+    // Render the template
+    handlebars.register_template_string("t_summary", TEMPLATE_HTML)?;
+    let rendered_html = handlebars.render("t_summary", &json)?;
+    write!(file, "{}", rendered_html)?;
+
+    // report result
+    info!("Summary written to {}", summary_file.display());
+
+    Ok(())
+}

@@ -1,3 +1,4 @@
 [submodule "deps/spoa-rs"]
 	path = deps/spoa-rs
 	url = https://github.com/olliecheng/spoa-rs
+	branch = main

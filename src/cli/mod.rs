@@ -64,7 +64,7 @@ pub enum Commands {
     Consensus(ConsensusArgs),
 
     #[command(arg_required_else_help = true)]
-    Group(GroupArgs),
+    Extract(ExtractArgs),
 }
 
 #[derive(Debug, Args)]
@@ -164,10 +164,9 @@ pub struct ConsensusArgs {
     pub extra_stats: bool,
 }
 
-/// Tag each read by its UMI group, and write to a .fastq file. Due to the large amounts of
-/// random file access required, this may take a while.
+/// Extract reads beloning to specific group queries a .fastq file, unmodified.
 #[derive(Debug, Args)]
-pub struct GroupArgs {
+pub struct ExtractArgs {
     /// the input .fastq
     pub input: PathBuf,
 

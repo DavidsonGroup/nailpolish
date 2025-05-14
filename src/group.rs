@@ -2,7 +2,7 @@ use crate::io::index::{ArchivedDuplicateGroupKey, FileIndexPath, IndexReader};
 
 use anyhow::{Context, Result};
 
-pub fn group(args: &crate::cli::GroupArgs) -> anyhow::Result<()> {
+pub fn group(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
     let paths = FileIndexPath::new(&args.input);
     let index_rdr = IndexReader::new(&paths)?;
 

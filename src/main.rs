@@ -1,5 +1,6 @@
 // disable unused code warnings for dev builds
-// #![cfg_attr(debug_assertions, allow(dead_code, unused_imports, unused_variables))]
+// #![cfg_attr(debug_assertions, allow(dead_code, unused_imports,
+// unused_variables))]
 
 extern crate env_logger;
 #[macro_use]
@@ -37,7 +38,7 @@ fn try_main() -> Result<()> {
         Commands::Summary(args) => summary::summarize(args),
         Commands::Index(args) => io::index::construct::construct_index(args),
         Commands::Consensus(args) => consensus::consensus(args),
-        Commands::Group(args) => group::group(args),
+        Commands::Extract(args) => group::group(args),
     }
 }
 

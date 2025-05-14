@@ -70,7 +70,7 @@ pub fn group(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
     };
 
     for group in allowed_groups {
-        let reads = accessor.fetch_reads_random_archived(group.reads)?;
+        let reads = accessor.fetch_reads_archived(group.reads)?;
 
         for read in reads.iter() {
             write!(writer, "{}", read.to_string())?;

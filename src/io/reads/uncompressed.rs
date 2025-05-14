@@ -1,4 +1,4 @@
-use super::{GroupedReadsAccessor, InMemorySequenceRecord, RecordLoader, BUF_CAPACITY};
+use super::{GroupedReadsAccessor, InMemorySequenceRecord, RecordLoader};
 use crate::io::index::{ReadLocation, ReadLocationTrait};
 
 use anyhow::{Context, Result};
@@ -95,7 +95,7 @@ pub struct SequentialReader {
 impl SingleReadAccessor for SequentialReader {
     fn new(file: &Path) -> Result<Self> {
         let file = std::fs::File::open(file)?;
-        let reader = BufReader::with_capacity(BUF_CAPACITY, file);
+        let reader = BufReader::with_capacity(*crate::env::READ_BUF_CAPACITY, file);
 
         Ok(Self {
             reader,

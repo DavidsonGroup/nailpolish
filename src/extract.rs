@@ -5,7 +5,7 @@ use crate::io::index::{ArchivedDuplicateGroupKey, FileIndexPath, IndexReader};
 
 use anyhow::{Context, Result};
 
-pub fn group(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
+pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
     let paths = FileIndexPath::new(&args.input);
     let index_rdr = IndexReader::new(&paths)?;
 
@@ -69,10 +69,7 @@ pub fn group(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
 
     let mut writer: Box<dyn std::io::Write> = match args.output.as_ref() {
         Some(v) => {
-            // initial capacity of 16MB
-            const CAPACITY: usize = 65336;
-
-            let wtr = BufWriter::with_capacity(CAPACITY, File::create(v)?);
+            let wtr = BufWriter::with_capacity(*crate::env::WRITE_BUF_CAPACITY, File::create(v)?);
             Box::new(wtr)
         }
         None => Box::new(std::io::stdout()),

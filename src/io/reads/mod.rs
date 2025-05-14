@@ -9,8 +9,6 @@ use anyhow::Result;
 use bio::io::fastq::{self, FastqRead};
 use std::io::Cursor;
 
-const BUF_CAPACITY: usize = 2 * 1024usize.pow(2);
-
 /// Read sequence record handling and loading.
 ///
 /// Provides traits and types for working with FASTQ sequence records in memory.

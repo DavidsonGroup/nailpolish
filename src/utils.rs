@@ -1,3 +1,6 @@
+use log::info;
+use std::env;
+
 /// Calculates a running average when a new value is added to an existing average
 pub(crate) fn running_avg(existing: f32, new: f32, new_count: usize) -> f32 {
     let new_count = new_count as f32;

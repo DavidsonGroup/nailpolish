@@ -11,7 +11,8 @@ use clap::Parser;
 
 mod cli;
 mod consensus;
-mod group;
+mod env;
+mod extract;
 mod io;
 mod summary;
 mod utils;
@@ -38,7 +39,7 @@ fn try_main() -> Result<()> {
         Commands::Summary(args) => summary::summarize(args),
         Commands::Index(args) => io::index::construct::construct_index(args),
         Commands::Consensus(args) => consensus::consensus(args),
-        Commands::Extract(args) => group::group(args),
+        Commands::Extract(args) => extract::extract(args),
     }
 }
 

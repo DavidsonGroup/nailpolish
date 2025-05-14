@@ -112,7 +112,10 @@ fn consensus_call(
 
             // Align to the graph
             let align = alignment_engine.align_from_bytes(record.seq(), &poa_graph);
-            poa_graph.add_alignment_from_bytes(&align, record.seq(), record.qual());
+            let alignment_result =
+                poa_graph.add_alignment_from_bytes(&align, record.seq(), record.qual());
+
+            debug!("{alignment_result:?}")
         }
 
         // Create a consensus read

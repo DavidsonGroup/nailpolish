@@ -68,7 +68,13 @@ pub fn group(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
         .context("Failed to create read accessor")?;
 
     let mut writer: Box<dyn std::io::Write> = match args.output.as_ref() {
-        Some(v) => Box::new(BufWriter::new(File::create(v)?)),
+        Some(v) => {
+            // initial capacity of 16MB
+            const CAPACITY: usize = 65336;
+
+            let wtr = BufWriter::with_capacity(CAPACITY, File::create(v)?);
+            Box::new(wtr)
+        }
         None => Box::new(std::io::stdout()),
     };
 
@@ -79,6 +85,8 @@ pub fn group(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
             write!(writer, "{}", read.to_string())?;
         }
     }
+
+    writer.flush()?;
 
     Ok(())
 }

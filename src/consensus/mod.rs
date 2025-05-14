@@ -6,7 +6,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::fmt::Write as StrWrite;
 use std::fs::File;
-use std::io::Write as IoWrite;
+use std::io::{BufWriter, Write as IoWrite};
 use std::time::Instant;
 
 use bio::io::fastq::Record;
@@ -41,7 +41,9 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     let mut accessor = index.get_read_accessor(&paths)?;
     let buffer_size: usize = 500usize * cli.threads;
 
-    let mut file_w = File::create_new(cli.output.clone())?;
+    // initial capacity of 16MB
+    const CAPACITY: usize = 65336;
+    let mut file_w = BufWriter::with_capacity(CAPACITY, File::create_new(cli.output.clone())?);
 
     for chunk in &index.groups().chunks(buffer_size) {
         // perform the read operations

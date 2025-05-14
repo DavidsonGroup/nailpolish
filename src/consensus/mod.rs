@@ -87,18 +87,6 @@ fn consensus_call(
 
         write!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
     } else {
-        // should we report the original reads first?
-        if args.report_original_reads {
-            for (idx, read) in reads.iter().enumerate() {
-                let header = formatter::make_original_header(group, read, idx, args);
-
-                let seq = std::str::from_utf8(read.seq())?;
-                let qual = std::str::from_utf8(read.qual())?;
-
-                writeln!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
-            }
-        }
-
         // consensus call
         let start_time = Instant::now();
 
@@ -107,21 +95,30 @@ fn consensus_call(
         let mut poa_graph = spoa::Graph::new();
 
         // add each read in the duplicate group to the graph
-        for record in reads.iter() {
-            // TODO: align originals and output as well
-
+        for (idx, record) in reads.iter().enumerate() {
             // Align to the graph
             let align = alignment_engine.align_from_bytes(record.seq(), &poa_graph);
             let alignment_result =
                 poa_graph.add_alignment_from_bytes(&align, record.seq(), record.qual());
 
-            debug!("{alignment_result:?}")
+            debug!("{alignment_result:?}");
+
+            // should we report the original reads first?
+            if args.report_original_reads {
+                let header =
+                    formatter::make_original_header(group, record, idx, &alignment_result, args);
+
+                let seq = std::str::from_utf8(record.seq())?;
+                let qual = std::str::from_utf8(record.qual())?;
+
+                writeln!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
+            }
         }
 
         // Create a consensus read
         let consensus = poa_graph.consensus_with_quality();
 
-        if args.debugging_header {
+        if args.extra_stats {
             write!(header, "|elapsed_us={}", start_time.elapsed().as_micros())?;
         }
 

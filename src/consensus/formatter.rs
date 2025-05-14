@@ -56,6 +56,7 @@ pub fn make_original_header(
     group: &ArchivedDuplicateGroup,
     read: &Record,
     read_idx: usize,
+    alignment_result: &spoa::AlignmentResult,
     args: &ConsensusArgs,
 ) -> String {
     let id = group.id;
@@ -72,6 +73,15 @@ pub fn make_original_header(
     if args.report_original_header {
         write!(params, "|orig_header={}", read.id()).unwrap();
     };
+
+    if args.extra_stats {
+        write!(
+            params,
+            "|align_new_nodes={}|align_sequence_len={}|align_valid_nodes={}",
+            alignment_result.new_nodes, alignment_result.sequence_len, alignment_result.valid_nodes
+        )
+        .unwrap();
+    }
 
     params
 }

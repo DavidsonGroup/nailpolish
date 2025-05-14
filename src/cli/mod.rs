@@ -161,7 +161,7 @@ pub struct ConsensusArgs {
     /// add debugging information to the read header [intended for internal development]
     /// warning: since timings are reported, the output will not be identical across runs
     #[arg(long, action)]
-    pub debugging_header: bool,
+    pub extra_stats: bool,
 }
 
 /// Tag each read by its UMI group, and write to a .fastq file. Due to the large amounts of

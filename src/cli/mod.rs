@@ -176,10 +176,13 @@ pub struct GroupArgs {
     pub output: Option<PathBuf>,
 
     /// Filter by specific group IDs (comma-separated)
-    #[arg(long, conflicts_with = "key")]
+    #[arg(long, conflicts_with_all = [ "key", "group_size" ])]
     pub id: Option<String>,
 
     /// Filter by regex pattern for the key
-    #[arg(long, conflicts_with = "id")]
+    #[arg(long, conflicts_with_all = [ "id", "group_size" ])]
     pub key: Option<String>,
+
+    #[arg(long, conflicts_with_all = ["id", "key"])]
+    pub group_size: Option<usize>,
 }

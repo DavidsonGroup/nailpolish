@@ -41,6 +41,17 @@ pub fn group(args: &crate::cli::GroupArgs) -> anyhow::Result<()> {
                 None
             })
             .collect()
+    } else if let Some(group_size) = &args.group_size {
+        index
+            .groups()
+            .filter_map(|group| {
+                if group.reads.len() == *group_size {
+                    Some(group.id)
+                } else {
+                    None
+                }
+            })
+            .collect()
     } else {
         anyhow::bail!("No key or ID is passed")
     };

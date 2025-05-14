@@ -1,3 +1,6 @@
+use std::fs::File;
+use std::io::BufWriter;
+
 use crate::io::index::{ArchivedDuplicateGroupKey, FileIndexPath, IndexReader};
 
 use anyhow::{Context, Result};
@@ -65,7 +68,7 @@ pub fn group(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
         .context("Failed to create read accessor")?;
 
     let mut writer: Box<dyn std::io::Write> = match args.output.as_ref() {
-        Some(v) => Box::new(std::fs::File::create(v)?),
+        Some(v) => Box::new(BufWriter::new(File::create(v)?)),
         None => Box::new(std::io::stdout()),
     };
 

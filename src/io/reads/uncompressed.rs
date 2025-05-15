@@ -34,7 +34,10 @@ impl GroupedReadsAccessor for UncompressedFileReader {
         let (head, tail) = reads.split_at(1);
         let head = head.first().ok_or(FileReadError::EmptyReadsProvided)?;
 
-        let first_read = self.seq.fetch(head)?;
+        let first_read = self
+            .seq
+            .fetch(head)
+            .with_context(|| format!("Could not fetch read at {head:?}"))?;
 
         // create the remaining reads
         let mut result = Vec::with_capacity(len);
@@ -48,7 +51,14 @@ impl GroupedReadsAccessor for UncompressedFileReader {
         &mut self,
         reads: &[ReadLocation],
     ) -> Result<Vec<InMemorySequenceRecord>> {
-        reads.iter().map(|loc| self.rnd.fetch(loc)).collect()
+        reads
+            .iter()
+            .map(|loc| {
+                self.rnd
+                    .fetch(loc)
+                    .with_context(|| format!("Could not fetch read at {loc:?}"))
+            })
+            .collect()
     }
 }
 

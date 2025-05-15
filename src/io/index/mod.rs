@@ -21,7 +21,7 @@ use smallvec::{smallvec, SmallVec};
 
 // An individual indexed read, with its byte length in file
 // and read status
-#[derive(Archive, Serialize, Deserialize, Clone)]
+#[derive(Archive, Serialize, Deserialize, Clone, Debug)]
 pub struct ReadLocation {
     pub _pos: usize,
     pub _byte_len: usize,

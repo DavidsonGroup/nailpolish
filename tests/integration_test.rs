@@ -92,3 +92,23 @@ fn consensus_4t() {
 
     temp.close().unwrap();
 }
+
+#[test]
+fn extract_3() {
+    let temp = assert_fs::NamedTempFile::new("extract_3.fastq").unwrap();
+    let path = temp.path().to_str().unwrap();
+
+    let mut command = Command::cargo_bin("nailpolish").unwrap();
+
+    let _ = command
+        .args(["extract", SAMPLE_FASTQ, "-o", path, "--group-size", "3"])
+        .assert()
+        .success();
+
+    const CORRECT_FILE: &str = "tests/correct/extract_3.fastq";
+    let cmp_cmd = format!("diff {} {}", temp.path().to_str().unwrap(), CORRECT_FILE);
+
+    let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
+
+    temp.close().unwrap();
+}

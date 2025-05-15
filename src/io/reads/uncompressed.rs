@@ -92,6 +92,11 @@ impl SingleReadAccessor for RandomAccessReader {
             .read_exact(&mut buffer)
             .with_context(|| format!("Could not read {num_bytes} bytes at position {pos}"))?;
 
+        debug!(
+            "RandomAccessReader: read contents ({pos}, {num_bytes}):\n\n{}\n\n",
+            std::str::from_utf8(&buffer).unwrap()
+        );
+
         InMemorySequenceRecord::from_u8(buffer)
     }
 }
@@ -129,6 +134,11 @@ impl SingleReadAccessor for SequentialReader {
         self.reader
             .read_exact(&mut buffer)
             .with_context(|| format!("Could not read {num_bytes} bytes at position {pos}"))?;
+
+        debug!(
+            "SequentialReader: read contents ({pos}, {num_bytes}):\n\n{}\n\n",
+            std::str::from_utf8(&buffer).unwrap()
+        );
 
         InMemorySequenceRecord::from_u8(buffer)
     }

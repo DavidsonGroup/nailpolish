@@ -92,9 +92,9 @@ where
         let rec = rec.expect("Invalid record");
 
         let read_location = ReadLocation {
-            _pos: rec.position().byte() as usize,
-            _byte_len: rec.all().len() + 1,
-            seq_len: rec.num_bases(),
+            _pos: rec.position().byte(),
+            _byte_len: (rec.all().len() as u32) + 1,
+            seq_len: rec.num_bases() as u32,
             qual: rec.phred_quality_avg().unwrap_or_default(),
         };
         let header = std::str::from_utf8(rec.id())?;
@@ -199,7 +199,7 @@ fn iter_lines_with_cluster_file(
 
 /// Extract identifier components from a read header using a regex pattern
 /// Returns the number of captures and the constructed identifier
-fn extract_header_id(header: &str, re: &Regex, pos: usize) -> Result<(usize, RecordIdentifier)> {
+fn extract_header_id(header: &str, re: &Regex, pos: u64) -> Result<(usize, RecordIdentifier)> {
     let Some(captures) = re.captures(header) else {
         bail!(IndexGenerationErr::NoMatch {
             header: String::from(header.trim()),
@@ -229,11 +229,7 @@ with capture group
     {re:?}
 suggestion: inspect the read using `tail -c +{pos} <fastq> | head -n 5`"
     )]
-    NoMatch {
-        header: String,
-        re: Regex,
-        pos: usize,
-    },
+    NoMatch { header: String, re: Regex, pos: u64 },
 
     #[error(
         "inconsistent identifier count:
@@ -246,7 +242,7 @@ using capture group
     DifferentMatchCounts {
         header: String,
         re: Regex,
-        pos: usize,
+        pos: u64,
         count: usize,
         expected: usize,
     },

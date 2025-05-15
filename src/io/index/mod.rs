@@ -23,27 +23,27 @@ use smallvec::{smallvec, SmallVec};
 // and read status
 #[derive(Archive, Serialize, Deserialize, Clone, Debug)]
 pub struct ReadLocation {
-    pub _pos: usize,
-    pub _byte_len: usize,
-    pub seq_len: usize,
+    pub _pos: u64,
+    pub _byte_len: u32,
+    pub seq_len: u32,
     pub qual: f32,
 }
 
 pub trait ReadLocationTrait {
-    fn pos(&self) -> usize;
-    fn byte_len(&self) -> usize;
+    fn pos(&self) -> u64;
+    fn byte_len(&self) -> u32;
 }
 
 macro_rules! impl_read_loc_trait {
     ($($tys:ty), *) => {
         $(
             impl ReadLocationTrait for $tys {
-                fn pos(&self) -> usize {
-                    usize::try_from(self._pos).expect("u32 to usize should not fail")
+                fn pos(&self) -> u64 {
+                    u64::try_from(self._pos).unwrap()
                 }
 
-                fn byte_len(&self) -> usize {
-                    usize::try_from(self._byte_len).expect("u32 to usize should not fail")
+                fn byte_len(&self) -> u32 {
+                    u32::try_from(self._byte_len).unwrap()
                 }
             }
         )*
@@ -74,8 +74,8 @@ pub struct ArchivedDuplicateGroup<'a> {
 #[derive(Archive, Serialize, Hash, Eq, PartialEq)]
 pub enum DuplicateGroupKey {
     Normal(RecordIdentifier),
-    Invalid(usize),
-    Filtered(usize),
+    Invalid(u64),
+    Filtered(u64),
 }
 
 impl DuplicateGroupKey {

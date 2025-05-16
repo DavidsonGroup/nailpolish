@@ -139,8 +139,8 @@ pub struct ConsensusArgs {
     pub input: PathBuf,
 
     /// the output .fastq
-    #[arg(short)]
-    pub output: PathBuf,
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
 
     /// the number of threads to use
     #[arg(short, long, default_value_t = 4)]

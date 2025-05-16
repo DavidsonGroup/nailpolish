@@ -18,14 +18,16 @@ use spoa::{AlignmentEngine, AlignmentType};
 mod formatter;
 
 /// Generate consensus sequences from duplicate read groups
-pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
-    let paths = FileIndexPath::new(&cli.input);
+pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
+    let paths = FileIndexPath::new(&args.input);
     let index_rdr = IndexReader::new(&paths)?;
 
     info!(
         "Consensus calling {} → {}",
         paths.fastq().display(),
-        cli.output.display()
+        args.output
+            .as_ref()
+            .map_or("stdout".to_string(), |v| v.display().to_string())
     );
 
     let index = index_rdr.load()?;
@@ -33,20 +35,17 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     // allocate a thread pool
     info!(
         "Creating thread pool with {0} threads + 1 IO thread",
-        cli.threads
+        args.threads
     );
 
     rayon::ThreadPoolBuilder::new()
-        .num_threads(cli.threads + 1)
+        .num_threads(args.threads + 1)
         .build_global()?;
 
     let mut accessor = index.get_read_accessor(&paths)?;
-    let buffer_size: usize = 500usize * cli.threads;
+    let buffer_size: usize = 500usize * args.threads;
 
-    let mut file_w = BufWriter::with_capacity(
-        *crate::env::WRITE_BUF_CAPACITY,
-        File::create_new(cli.output.clone())?,
-    );
+    let mut writer = crate::utils::get_writer(args.output.as_deref())?;
 
     for chunk in &index.groups().chunks(buffer_size) {
         // perform the read operations
@@ -62,13 +61,15 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
         // perform the parallel consensus call
         let output: Vec<String> = input
             .par_iter()
-            .map(|(g, v)| consensus_call(g, v, cli))
+            .map(|(g, v)| consensus_call(g, v, args))
             .collect::<Result<Vec<_>>>()?;
 
         for elem in output.iter() {
-            writeln!(file_w, "{}", elem)?;
+            writeln!(writer, "{}", elem)?;
         }
     }
+
+    info!("Finished");
 
     Ok(())
 }
@@ -108,7 +109,6 @@ fn consensus_call(
         )?;
     } else {
         // consensus call
-        let start_time = Instant::now();
 
         // initialise `spoa` machinery
         let mut alignment_engine = AlignmentEngine::new(AlignmentType::kOV, 5, -4, -8, -6, -10, -4);

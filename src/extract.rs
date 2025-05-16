@@ -67,13 +67,7 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
         .get_read_accessor(&paths)
         .context("Failed to create read accessor")?;
 
-    let mut writer: Box<dyn std::io::Write> = match args.output.as_ref() {
-        Some(v) => {
-            let wtr = BufWriter::with_capacity(*crate::env::WRITE_BUF_CAPACITY, File::create(v)?);
-            Box::new(wtr)
-        }
-        None => Box::new(std::io::stdout()),
-    };
+    let mut writer = crate::utils::get_writer(args.output.as_deref())?;
 
     for group in allowed_groups {
         let reads = accessor.fetch_reads_archived(group.reads)?;
@@ -82,6 +76,7 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
     }
 
     writer.flush()?;
+    info!("Finished");
 
     Ok(())
 }

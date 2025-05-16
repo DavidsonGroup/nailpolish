@@ -138,7 +138,7 @@ pub struct ConsensusArgs {
     /// the input .fastq
     pub input: PathBuf,
 
-    /// the output .fastq
+    /// the output .fastq, or empty for stdout
     #[arg(short, long)]
     pub output: Option<PathBuf>,
 
@@ -170,7 +170,7 @@ pub struct ExtractArgs {
     /// the input .fastq
     pub input: PathBuf,
 
-    /// the output .fastq
+    /// the output .fastq, or empty for stdout
     #[arg(short, long)]
     pub output: Option<PathBuf>,
 

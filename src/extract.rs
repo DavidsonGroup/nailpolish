@@ -78,9 +78,7 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
     for group in allowed_groups {
         let reads = accessor.fetch_reads_archived(group.reads)?;
 
-        for read in reads.iter() {
-            write!(writer, "{}", read.to_string())?;
-        }
+        writer.write_all(&reads)?;
     }
 
     writer.flush()?;

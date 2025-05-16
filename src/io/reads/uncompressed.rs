@@ -1,7 +1,7 @@
-use super::{GroupedReadsAccessor, InMemorySequenceRecord, RecordLoader};
+use super::GroupedReadsAccessor;
 use crate::io::index::{ReadLocation, ReadLocationTrait};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 use thiserror::Error;
@@ -26,48 +26,64 @@ impl GroupedReadsAccessor for UncompressedFileReader {
         })
     }
 
-    fn fetch_reads(&mut self, reads: &[ReadLocation]) -> Result<Vec<InMemorySequenceRecord>> {
-        let len = reads.len();
+    fn fetch_reads(&mut self, reads: &[ReadLocation]) -> Result<Vec<u8>> {
+        let buffer_size = reads.iter().map(|v| v._byte_len as usize).sum();
+        let mut buffer = vec![0; buffer_size];
 
         // the first read (`head`) should be read using a sequential reader, while the
         // tail is not sequential and should be read using a random reader
         let (head, tail) = reads.split_at(1);
         let head = head.first().ok_or(FileReadError::EmptyReadsProvided)?;
 
-        let first_read = self
-            .seq
-            .fetch(head)
+        // fetch first read using sequential reader
+        self.seq
+            .fetch(head, &mut buffer[0..head._byte_len as usize])
             .with_context(|| format!("Could not fetch read at {head:?}"))?;
 
-        // create the remaining reads
-        let mut result = Vec::with_capacity(len);
-        result.push(first_read);
-        result.extend(self.fetch_reads_random(tail)?);
+        // fetch remaining reads using random reader
+        self._fetch_reads_random(tail, &mut buffer[head._byte_len as usize..])?;
 
-        Ok(result)
+        Ok(buffer)
     }
 
-    fn fetch_reads_random(
-        &mut self,
-        reads: &[ReadLocation],
-    ) -> Result<Vec<InMemorySequenceRecord>> {
-        reads
-            .iter()
-            .map(|loc| {
-                self.rnd
-                    .fetch(loc)
-                    .with_context(|| format!("Could not fetch read at {loc:?}"))
-            })
-            .collect()
+    fn _fetch_reads_random(&mut self, reads: &[ReadLocation], buffer: &mut [u8]) -> Result<()> {
+        let mut start = 0;
+        for read in reads.iter() {
+            let end = start + read._byte_len as usize;
+
+            if end > buffer.len() {
+                bail!(
+                    "Buffer size {} is too small for read with end {end} at {read:?}",
+                    buffer.len()
+                );
+            }
+
+            // fetch the read into the buffer
+            self.rnd
+                .fetch(read, &mut buffer[start..end])
+                .with_context(|| format!("Could not fetch read at {read:?}"))?;
+
+            start = end;
+        }
+
+        Ok(())
+    }
+
+    fn fetch_reads_random(&mut self, reads: &[ReadLocation]) -> Result<Vec<u8>> {
+        let buffer_size = reads.iter().map(|v| v._byte_len as usize).sum();
+        let mut buffer = vec![0; buffer_size];
+
+        self._fetch_reads_random(reads, &mut buffer)?;
+        Ok(buffer)
     }
 }
 
 pub trait SingleReadAccessor: Sized {
     fn new(file: &Path) -> Result<Self>;
-    fn _fetch(&mut self, pos: u64, num_bytes: u64) -> Result<InMemorySequenceRecord>;
+    fn _fetch(&mut self, pos: u64, buffer: &mut [u8]) -> Result<()>;
 
-    fn fetch(&mut self, read: &ReadLocation) -> Result<InMemorySequenceRecord> {
-        self._fetch(read.pos() as u64, read.byte_len() as u64)
+    fn fetch(&mut self, read: &ReadLocation, buffer: &mut [u8]) -> Result<()> {
+        self._fetch(read.pos() as u64, buffer)
     }
 }
 
@@ -82,22 +98,23 @@ impl SingleReadAccessor for RandomAccessReader {
         Ok(Self { file })
     }
 
-    fn _fetch(&mut self, pos: u64, num_bytes: u64) -> Result<InMemorySequenceRecord> {
+    fn _fetch(&mut self, pos: u64, buffer: &mut [u8]) -> Result<()> {
+        let num_bytes = buffer.len();
+
         self.file
             .seek(SeekFrom::Start(pos))
             .with_context(|| format!("Unable to seek file at position {}", pos))?;
 
-        let mut buffer = vec![0; num_bytes as usize];
         self.file
-            .read_exact(&mut buffer)
-            .with_context(|| format!("Could not read {num_bytes} bytes at position {pos}"))?;
+            .read_exact(buffer)
+            .with_context(|| format!("Could not read {num_bytes} bytes at position {pos}"));
 
         debug!(
             "RandomAccessReader: read contents ({pos}, {num_bytes}):\n\n{}\n\n",
             std::str::from_utf8(&buffer).unwrap()
         );
 
-        InMemorySequenceRecord::from_u8(buffer)
+        Ok(())
     }
 }
 
@@ -118,7 +135,9 @@ impl SingleReadAccessor for SequentialReader {
         })
     }
 
-    fn _fetch(&mut self, pos: u64, num_bytes: u64) -> Result<InMemorySequenceRecord> {
+    fn _fetch(&mut self, pos: u64, buffer: &mut [u8]) -> Result<()> {
+        let num_bytes = buffer.len();
+
         let offset = (pos as i64) - (self.position as i64);
         if offset != 0 {
             debug!(
@@ -128,11 +147,10 @@ impl SingleReadAccessor for SequentialReader {
             self.reader.seek_relative(offset)?;
         }
 
-        self.position = pos + num_bytes;
+        self.position = pos + num_bytes as u64;
 
-        let mut buffer = vec![0; num_bytes as usize];
         self.reader
-            .read_exact(&mut buffer)
+            .read_exact(buffer)
             .with_context(|| format!("Could not read {num_bytes} bytes at position {pos}"))?;
 
         debug!(
@@ -140,6 +158,6 @@ impl SingleReadAccessor for SequentialReader {
             std::str::from_utf8(&buffer).unwrap()
         );
 
-        InMemorySequenceRecord::from_u8(buffer)
+        Ok(())
     }
 }

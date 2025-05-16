@@ -2,14 +2,16 @@
 use crate::cli::ConsensusArgs;
 use crate::io::index::{ArchivedDuplicateGroup, FileIndexPath, IndexReader};
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
+use core::str;
 use itertools::Itertools;
+use needletail::parser::FastqReader;
+use needletail::FastxReader as _;
 use std::fmt::Write as StrWrite;
 use std::fs::File;
-use std::io::{BufWriter, Write as IoWrite};
+use std::io::{BufWriter, Cursor, Write as IoWrite};
 use std::time::Instant;
 
-use bio::io::fastq::Record;
 use rayon::prelude::*;
 use spoa::{AlignmentEngine, AlignmentType};
 
@@ -74,21 +76,36 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
 /// Generates a consensus sequence for a group of reads, or returns the single read if no duplicates exist
 fn consensus_call(
     group: &ArchivedDuplicateGroup,
-    reads: &Vec<Record>,
+    reads_u8: &Vec<u8>,
     args: &ConsensusArgs,
 ) -> Result<String> {
-    let mut header = formatter::make_consensus_header(group, reads, args);
+    let mut header_builder = formatter::HeaderFormatter::new(group, args);
+    let read_count = group.reads.len();
 
+    let mut reader = FastqReader::new(Cursor::new(reads_u8));
     let mut result = String::new();
 
-    if reads.len() == 1 {
+    if read_count == 1 {
         // simplex read
-        let read = &reads[0];
+        let read = reader
+            .next()
+            .context("No read found")?
+            .context("Invalid read")?;
 
-        let seq = unsafe { std::str::from_utf8_unchecked(read.seq()) };
-        let qual = unsafe { std::str::from_utf8_unchecked(read.qual()) };
+        header_builder.add_read(&read);
 
-        write!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
+        let seq = read.seq();
+        let qual = read.qual().context("No quality")?;
+
+        let header = header_builder.finalize();
+
+        write!(
+            result,
+            "@{}\n{}\n+\n{}",
+            header,
+            str::from_utf8(&seq)?,
+            str::from_utf8(&qual)?
+        )?;
     } else {
         // consensus call
         let start_time = Instant::now();
@@ -97,36 +114,45 @@ fn consensus_call(
         let mut alignment_engine = AlignmentEngine::new(AlignmentType::kOV, 5, -4, -8, -6, -10, -4);
         let mut poa_graph = spoa::Graph::new();
 
-        // add each read in the duplicate group to the graph
-        for (idx, record) in reads.iter().enumerate() {
+        let mut idx = 0usize;
+        while let Some(read) = reader.next() {
+            let read = read.context("Invalid read")?;
+
+            let seq = read.seq();
+            let qual = read.qual().context("No quality")?;
+
+            // add each read in the duplicate group to the graph
+            header_builder.add_read(&read);
+
             // Align to the graph
-            let align = alignment_engine.align_from_bytes(record.seq(), &poa_graph);
-            let alignment_result =
-                poa_graph.add_alignment_from_bytes(&align, record.seq(), record.qual());
+            let align = alignment_engine.align_from_bytes(&seq, &poa_graph);
+            let alignment_result = poa_graph.add_alignment_from_bytes(&align, &seq, &qual);
 
             debug!("{alignment_result:?}");
 
             // should we report the original reads first?
             if args.report_original_reads {
-                let header =
-                    formatter::make_original_header(group, record, idx, &alignment_result, args);
+                let header = header_builder.make_original_header(&read, idx, &alignment_result);
 
-                let seq = std::str::from_utf8(record.seq())?;
-                let qual = std::str::from_utf8(record.qual())?;
-
-                writeln!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
+                writeln!(
+                    result,
+                    "@{}\n{}\n+\n{}",
+                    header,
+                    str::from_utf8(&seq).unwrap(),
+                    str::from_utf8(&qual).unwrap()
+                )?;
             }
+
+            idx += 1;
         }
 
         // Create a consensus read
         let consensus = poa_graph.consensus_with_quality();
 
-        if args.extra_stats {
-            write!(header, "|elapsed_us={}", start_time.elapsed().as_micros())?;
-        }
-
         let seq = &consensus.sequence;
         let qual = &consensus.quality;
+
+        let header = header_builder.finalize();
 
         write!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
     }

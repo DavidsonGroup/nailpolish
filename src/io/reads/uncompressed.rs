@@ -107,7 +107,7 @@ impl SingleReadAccessor for RandomAccessReader {
 
         self.file
             .read_exact(buffer)
-            .with_context(|| format!("Could not read {num_bytes} bytes at position {pos}"));
+            .with_context(|| format!("Could not read {num_bytes} bytes at position {pos}"))?;
 
         debug!(
             "RandomAccessReader: read contents ({pos}, {num_bytes}):\n\n{}\n\n",

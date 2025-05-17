@@ -8,9 +8,7 @@ use itertools::Itertools;
 use needletail::parser::FastqReader;
 use needletail::FastxReader as _;
 use std::fmt::Write as StrWrite;
-use std::fs::File;
-use std::io::{BufWriter, Cursor, Write as IoWrite};
-use std::time::Instant;
+use std::io::{Cursor, Write as IoWrite};
 
 use rayon::prelude::*;
 use spoa::{AlignmentEngine, AlignmentType};
@@ -22,6 +20,8 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
     let paths = FileIndexPath::new(&args.input);
     let index_rdr = IndexReader::new(&paths)?;
 
+    let is_multithreaded = args.threads != 1;
+
     info!(
         "Consensus calling {} → {}",
         paths.fastq().display(),
@@ -32,20 +32,29 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
 
     let index = index_rdr.load()?;
 
-    // allocate a thread pool
-    info!(
-        "Creating thread pool with {0} threads + 1 IO thread",
-        args.threads
-    );
+    let total_num_reads = index.get_hashmap().len();
 
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(args.threads + 1)
-        .build_global()?;
+    // allocate a thread pool
+    if is_multithreaded {
+        info!("Using thread pool with {} threads", args.threads,)
+    } else {
+        info!("Using single thread")
+    }
+
+    if is_multithreaded {
+        // set the number of threads that Rayon will use
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(args.threads)
+            .build_global()?;
+    }
 
     let mut accessor = index.get_read_accessor(&paths)?;
-    let buffer_size: usize = 500usize * args.threads;
+    let buffer_size: usize = 100usize * args.threads;
 
     let mut writer = crate::utils::get_writer(args.output.as_deref())?;
+
+    let mut processed_reads = 0;
+    const REPORT_INTERVAL: usize = 100000; // number of reads to process before reporting progress
 
     for chunk in &index.groups().chunks(buffer_size) {
         // perform the read operations
@@ -58,18 +67,32 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        // perform the parallel consensus call
-        let output: Vec<String> = input
-            .par_iter()
-            .map(|(g, v)| consensus_call(g, v, args))
-            .collect::<Result<Vec<_>>>()?;
+        // perform the consensus call
+        let output = if is_multithreaded {
+            // parallel: use rayon thread pool
+            input
+                .par_iter()
+                .map(|(g, v)| consensus_call(g, v, args))
+                .collect::<Result<Vec<_>>>()?
+        } else {
+            // otherwise, just use a single iterator
+            input
+                .iter()
+                .map(|(g, v)| consensus_call(g, v, args))
+                .collect::<Result<Vec<_>>>()?
+        };
 
         for elem in output.iter() {
+            processed_reads += 1;
+            if processed_reads % REPORT_INTERVAL == 0 {
+                info!("proc: {} / {} groups", processed_reads, total_num_reads);
+            }
+
             writeln!(writer, "{}", elem)?;
         }
     }
 
-    info!("Finished");
+    info!("proc: {} / {} groups", processed_reads, total_num_reads);
 
     Ok(())
 }

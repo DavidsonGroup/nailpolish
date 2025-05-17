@@ -179,6 +179,15 @@ impl ArchivedIndex {
             })
     }
 
+    pub fn get_hashmap(
+        &self,
+    ) -> &rkyv::collections::swiss_table::ArchivedIndexMap<
+        ArchivedDuplicateGroupKey,
+        ArchivedVec<ArchivedReadLocation>,
+    > {
+        &self.groups
+    }
+
     /// Get an read accessor that can perform filesystem operations and read the original reads
     pub fn get_read_accessor(
         &self,

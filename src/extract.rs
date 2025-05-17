@@ -59,9 +59,7 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
         anyhow::bail!("No key or ID is passed")
     };
 
-    let allowed_groups = index
-        .groups()
-        .filter(|group| allowed_ids.contains(&group.id));
+    let allowed_groups = allowed_ids.iter().map(|id| index.get_by_id(*id));
 
     let mut accessor = index
         .get_read_accessor(&paths)
@@ -70,6 +68,7 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
     let mut writer = crate::utils::get_writer(args.output.as_deref())?;
 
     for group in allowed_groups {
+        let group = group.context("Group does not exist")?;
         let reads = accessor.fetch_reads_archived(group.reads)?;
 
         writer.write_all(&reads)?;

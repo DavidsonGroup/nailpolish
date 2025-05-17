@@ -123,8 +123,12 @@ impl Index {
         index
     }
 
+    pub fn get_by_id(&self, id: usize) -> Option<DuplicateGroup> {
+        todo!();
+    }
+
     /// Retrieves a duplicate group by its record identifier.
-    pub fn get_by_record_id(&self, id: RecordIdentifier) -> Option<DuplicateGroup> {
+    pub fn get_by_record_key(&self, id: RecordIdentifier) -> Option<DuplicateGroup> {
         self.get_by_key(&DuplicateGroupKey::Normal(id))
     }
 
@@ -190,6 +194,12 @@ impl ArchivedIndex {
                 .with_context(|| format!("Error reading read file {}", fastq_path.display()))?;
             Ok(Box::new(reader))
         }
+    }
+
+    pub fn get_by_id(&self, id: usize) -> Option<ArchivedDuplicateGroup> {
+        self.groups
+            .get_index(id)
+            .map(|(key, reads)| ArchivedDuplicateGroup { key, reads, id })
     }
 
     /// Provides access to the metadata of the index.

@@ -182,6 +182,11 @@ pub struct ExtractArgs {
     #[arg(long, conflicts_with_all = [ "id", "group_size" ])]
     pub key: Option<String>,
 
+    /// Filter by the size of the duplicate group
     #[arg(long, conflicts_with_all = ["id", "key"])]
     pub group_size: Option<usize>,
+
+    /// Output format type
+    #[arg(long, default_value = "fastq")]
+    pub format: preset::PresetOutputFormats,
 }

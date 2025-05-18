@@ -18,6 +18,7 @@ mod summary;
 mod utils;
 
 use cli::{get_version_label, Cli, Commands};
+use itertools::Itertools;
 
 /// Report resource usage statistics
 #[cfg(unix)]
@@ -71,6 +72,7 @@ fn try_main() -> Result<()> {
 
     // start with version information, if a command has been run
     info!("{}", get_version_label());
+    info!("CMD: {}", std::env::args().join(" "));
 
     debug!("Called with parameters:\n{:?}", cli);
 

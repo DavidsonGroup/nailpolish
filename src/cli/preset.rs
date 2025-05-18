@@ -23,3 +23,9 @@ impl PresetBarcodeFormats {
         })
     }
 }
+
+#[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
+pub enum PresetOutputFormats {
+    Fastq,
+    Fasta,
+}

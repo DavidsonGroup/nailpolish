@@ -1,9 +1,14 @@
-use std::fs::File;
-use std::io::BufWriter;
+use std::io::Cursor;
+use std::io::Write;
 
-use crate::io::index::{ArchivedDuplicateGroupKey, FileIndexPath, IndexReader};
+use crate::{
+    cli::preset::PresetOutputFormats,
+    io::index::{ArchivedDuplicateGroupKey, FileIndexPath, IndexReader},
+};
 
 use anyhow::{Context, Result};
+use needletail::parser::FastqReader;
+use needletail::FastxReader;
 
 pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
     let paths = FileIndexPath::new(&args.input);
@@ -67,11 +72,26 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
 
     let mut writer = crate::utils::get_writer(args.output.as_deref())?;
 
-    for group in allowed_groups {
-        let group = group.context("Group does not exist")?;
-        let reads = accessor.fetch_reads_archived(group.reads)?;
+    if args.format == PresetOutputFormats::Fastq {
+        for group in allowed_groups {
+            let group = group.context("Group does not exist")?;
+            let reads = accessor.fetch_reads_archived(group.reads)?;
 
-        writer.write_all(&reads)?;
+            writer.write_all(&reads)?;
+        }
+    } else {
+        for group in allowed_groups {
+            let group = group.context("Group does not exist")?;
+            let reads_u8 = accessor.fetch_reads_archived(group.reads)?;
+
+            let mut reader = FastqReader::new(Cursor::new(reads_u8));
+            while let Some(read) = reader.next() {
+                let read = read.context("Invalid read")?;
+
+                writeln!(writer, ">{}", String::from_utf8_lossy(read.id()))?;
+                writeln!(writer, "{}", String::from_utf8_lossy(&read.seq()))?;
+            }
+        }
     }
 
     writer.flush()?;

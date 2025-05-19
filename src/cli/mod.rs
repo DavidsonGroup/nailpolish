@@ -166,7 +166,7 @@ pub struct ConsensusArgs {
     /// disable the clustering algorithm
     /// this will prevent nailpolish from detecting and separating false duplicates
     #[arg(long, action)]
-    pub disable_clusters: bool,
+    pub no_clustering: bool,
 }
 
 /// Extract reads beloning to specific group queries a .fastq file, unmodified.

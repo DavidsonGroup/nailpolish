@@ -92,6 +92,20 @@ impl DuplicateGroupKey {
     }
 }
 
+impl ArchivedDuplicateGroupKey {
+    pub(crate) fn is_invalid(&self) -> bool {
+        matches!(self, Self::Invalid(_))
+    }
+
+    pub fn is_filtered(&self) -> bool {
+        matches!(self, Self::Filtered(_))
+    }
+
+    pub fn is_normal(&self) -> bool {
+        matches!(self, Self::Normal(_))
+    }
+}
+
 /// Represents an index structure for managing duplicate groups and their associated metadata.
 #[derive(Archive, Deserialize, Serialize)]
 pub struct Index {

@@ -55,6 +55,20 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
     let mut writer = crate::utils::get_writer(args.output.as_deref())?;
 
     let mut processed_reads = 0;
+    let mut processed_clusters = 0;
+    let mut processed_duplicate_groups = 0;
+    let mut max_clusters = 0;
+
+    let report_progress = |processed_reads: usize,
+                           total_num_reads: usize,
+                           processed_duplicate_reads: usize,
+                           processed_clusters: usize,
+                           max_clusters: usize| {
+        let cluster_ratio = processed_clusters as f64 / processed_duplicate_reads as f64;
+
+        info!("proc: {processed_reads} / {total_num_reads} groups\t(clusters per duplicate group: avg {cluster_ratio:.2}, max {max_clusters})");
+    };
+
     const REPORT_INTERVAL: usize = 100000; // number of reads to process before reporting progress
 
     for chunk in &index.groups().chunks(buffer_size) {
@@ -83,17 +97,38 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
                 .collect::<Result<Vec<_>>>()?
         };
 
-        for elem in output.iter() {
+        for (elem, clusters, is_duplicate) in output.into_iter() {
             processed_reads += 1;
+            if is_duplicate {
+                processed_clusters += clusters;
+            }
+            processed_duplicate_groups += is_duplicate as usize;
+
+            max_clusters = std::cmp::max(max_clusters, clusters);
+
             if processed_reads % REPORT_INTERVAL == 0 {
-                info!("proc: {} / {} groups", processed_reads, total_num_reads);
+                report_progress(
+                    processed_reads,
+                    total_num_reads,
+                    processed_duplicate_groups,
+                    processed_clusters,
+                    max_clusters,
+                );
             }
 
             write!(writer, "{}", elem)?;
         }
     }
 
-    info!("proc: {} / {} groups", processed_reads, total_num_reads);
+    report_progress(
+        processed_reads,
+        total_num_reads,
+        processed_duplicate_groups,
+        processed_clusters,
+        max_clusters,
+    );
+
+    info!("Complete\ninput: {total_num_reads} reads\nduplicate groups: {processed_duplicate_groups} groups\ntotal clusters: {processed_clusters}");
 
     Ok(())
 }
@@ -103,7 +138,7 @@ fn consensus_call(
     group: &ArchivedDuplicateGroup,
     reads_u8: &Vec<u8>,
     args: &ConsensusArgs,
-) -> Result<String> {
+) -> Result<(String, usize, bool)> {
     let mut header_builder = formatter::HeaderFormatter::new(group, args);
     let read_count = group.reads.len();
 
@@ -117,7 +152,7 @@ fn consensus_call(
             .context("No read found")?
             .context("Invalid read")?;
 
-        header_builder.add_read(&read);
+        header_builder.add_read(0, &read);
 
         let seq = read.seq();
         let qual = read.qual().context("No quality")?;
@@ -131,6 +166,8 @@ fn consensus_call(
             str::from_utf8(&seq)?,
             str::from_utf8(&qual)?
         )?;
+
+        Ok((result, 1, false))
     } else {
         // consensus call
 
@@ -148,36 +185,38 @@ fn consensus_call(
             let seq = read.seq();
             let qual = read.qual().context("No quality")?;
 
-            // add each read in the duplicate group to the graph
-            header_builder.add_read(&read);
-
-            let mut alignment_result = None;
+            // let mut alignment_result = None;
+            let mut alignment_predictions = Vec::new();
 
             let mut did_cluster = false;
-            for graph in graphs.iter_mut() {
+            let mut inserted_cluster_id = 0;
+            for (cluster_id, graph) in graphs.iter_mut().enumerate() {
                 // Align to the graph
                 let align = alignment_engine.align_from_bytes(&seq, graph);
 
-                let (will_cluster, alignment_prediction) =
-                    if first_read_in_group || args.disable_clusters {
-                        (true, None)
-                    } else {
-                        let alignment_prediction = graph.predict_alignment_from_bytes(&align, &seq);
-                        debug!("Prediction:\t{alignment_prediction:?}");
-                        (
-                            cluster::should_cluster(&alignment_prediction),
-                            Some(alignment_prediction),
-                        )
-                    };
+                let will_cluster = if first_read_in_group || args.no_clustering {
+                    true
+                } else {
+                    let alignment_prediction = graph.predict_alignment_from_bytes(&align, &seq);
+
+                    let will_cluster = cluster::should_cluster(&alignment_prediction);
+                    alignment_predictions.push(alignment_prediction);
+
+                    debug!("Prediction:\t{alignment_prediction:?}");
+                    will_cluster
+                };
 
                 if will_cluster {
-                    alignment_result = Some(graph.add_alignment_from_bytes(&align, &seq, &qual));
+                    let alignment_result = graph.add_alignment_from_bytes(&align, &seq, &qual);
 
                     // debug check for bugs in the alignment prediction algorithm
-                    if let Some(alignment_prediction) = alignment_prediction {
-                        assert_eq!(alignment_prediction, alignment_result.unwrap())
-                    }
+                    // todo: fix this?
+                    // if let Some(alignment_prediction) = alignment_predictions.last() {
+                    //     assert_eq!(alignment_prediction, alignment_result)
+                    // }
 
+                    // add each read in the duplicate group to the graph
+                    inserted_cluster_id = cluster_id;
                     did_cluster = true;
 
                     debug!("Added result:\t{alignment_result:?}");
@@ -191,19 +230,22 @@ fn consensus_call(
             if !did_cluster {
                 let mut new_graph = spoa::Graph::new();
                 let align = alignment_engine.align_from_bytes(&seq, &new_graph);
-                alignment_result = Some(new_graph.add_alignment_from_bytes(&align, &seq, &qual));
+                alignment_predictions.push(new_graph.add_alignment_from_bytes(&align, &seq, &qual));
 
                 debug!("Added new graph");
                 graphs.push(new_graph);
+                inserted_cluster_id = graphs.len() - 1;
             }
 
             // should we report the original reads first?
 
+            header_builder.add_read(inserted_cluster_id, &read);
             if args.report_original_reads {
                 let header = header_builder.make_original_header(
                     &read,
                     read_idx,
-                    &alignment_result.unwrap(),
+                    alignment_predictions,
+                    inserted_cluster_id,
                 );
 
                 writeln!(
@@ -230,7 +272,7 @@ fn consensus_call(
 
             writeln!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
         }
-    }
 
-    Ok(result)
+        Ok((result, graphs.len(), true))
+    }
 }

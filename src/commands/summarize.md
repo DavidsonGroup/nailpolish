@@ -1,7 +1,7 @@
 # nailpolish summary
 
 Quickly review the quality and duplicate rate of the dataset.
-The reads must first have been [indexed](./generate-index.md).
+The reads must first have been [indexed](./index.md).
 
 ## Usage
 
@@ -9,11 +9,13 @@ The reads must first have been [indexed](./generate-index.md).
 $ nailpolish summary --help
 Generate a summary of duplicate statistics from an index file
 
-Usage: nailpolish summary [OPTIONS] --index <INDEX>
+Usage: nailpolish summary [OPTIONS] <INPUT>
+
+Arguments:
+  <INPUT>  Input .fastq file
 
 Options:
-      --index <INDEX>    the index file
-      --output <OUTPUT>  output file [default: summary.html]
+  -o, --output <OUTPUT>  Output .html file. By default, will write to <file>.summary.html
   -h, --help             Print help
 ```
 

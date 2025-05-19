@@ -1,5 +1,10 @@
 # Quick Start
 
+
+## Warning
+
+**This guide was written for Nailpolish v0.1.0 and so is considered depreciated. Commands listed here likely will not work.**
+
 This quick start guide will walk you through installing Nailpolish and running it on a small demo dataset.
 The demo dataset is a small subset of the _scmixology2_ Chromium 10x droplet-based dataset, sequenced using
 Nanopore technology, released by [Tian et al. (2021)](https://doi.org/10.1186/s13059-021-02525-6).

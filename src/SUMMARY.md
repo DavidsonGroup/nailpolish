@@ -5,8 +5,8 @@
 
 # Commands
 
-- [nailpolish index](commands/generate-index.md)
+- [nailpolish index](commands/index.md)
 - [nailpolish summary](commands/summarize.md)
-- [nailpolish call](commands/call.md)
+- [nailpolish consensus](commands/consensus.md)
 
 # Reference

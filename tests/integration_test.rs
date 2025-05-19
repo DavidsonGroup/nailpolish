@@ -52,7 +52,7 @@ fn consensus_1t_no_clustering() {
             "1",
             "--report-original-header",
             "--report-original-reads",
-            "--disable-clusters",
+            "--no-clustering",
         ])
         .assert()
         .success();
@@ -82,7 +82,7 @@ fn consensus_4t_no_clustering() {
             "4",
             "--report-original-header",
             "--report-original-reads",
-            "--disable-clusters",
+            "--no-clustering",
         ])
         .assert()
         .success();

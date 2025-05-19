@@ -162,6 +162,11 @@ pub struct ConsensusArgs {
     /// warning: since timings are reported, the output will not be identical across runs
     #[arg(long, action)]
     pub extra_stats: bool,
+
+    /// disable the clustering algorithm
+    /// this will prevent nailpolish from detecting and separating false duplicates
+    #[arg(long, action)]
+    pub disable_clusters: bool,
 }
 
 /// Extract reads beloning to specific group queries a .fastq file, unmodified.

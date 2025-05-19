@@ -13,6 +13,7 @@ use std::io::{Cursor, Write as IoWrite};
 use rayon::prelude::*;
 use spoa::{AlignmentEngine, AlignmentType};
 
+mod cluster;
 mod formatter;
 
 /// Generate consensus sequences from duplicate read groups
@@ -88,7 +89,7 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
                 info!("proc: {} / {} groups", processed_reads, total_num_reads);
             }
 
-            writeln!(writer, "{}", elem)?;
+            write!(writer, "{}", elem)?;
         }
     }
 
@@ -121,9 +122,9 @@ fn consensus_call(
         let seq = read.seq();
         let qual = read.qual().context("No quality")?;
 
-        let header = header_builder.finalize();
+        let header = header_builder.make_consensus_header(0);
 
-        write!(
+        writeln!(
             result,
             "@{}\n{}\n+\n{}",
             header,
@@ -135,9 +136,12 @@ fn consensus_call(
 
         // initialise `spoa` machinery
         let mut alignment_engine = AlignmentEngine::new(AlignmentType::kOV, 5, -4, -8, -6, -10, -4);
-        let mut poa_graph = spoa::Graph::new();
 
-        let mut idx = 0usize;
+        let mut read_idx = 0usize;
+
+        let mut graphs = vec![spoa::Graph::new()];
+        let mut first_read_in_group = true;
+
         while let Some(read) = reader.next() {
             let read = read.context("Invalid read")?;
 
@@ -147,15 +151,60 @@ fn consensus_call(
             // add each read in the duplicate group to the graph
             header_builder.add_read(&read);
 
-            // Align to the graph
-            let align = alignment_engine.align_from_bytes(&seq, &poa_graph);
-            let alignment_result = poa_graph.add_alignment_from_bytes(&align, &seq, &qual);
+            let mut alignment_result = None;
 
-            debug!("{alignment_result:?}");
+            let mut did_cluster = false;
+            for graph in graphs.iter_mut() {
+                // Align to the graph
+                let align = alignment_engine.align_from_bytes(&seq, graph);
+
+                let (will_cluster, alignment_prediction) =
+                    if first_read_in_group || args.disable_clusters {
+                        (true, None)
+                    } else {
+                        let alignment_prediction = graph.predict_alignment_from_bytes(&align, &seq);
+                        debug!("Prediction:\t{alignment_prediction:?}");
+                        (
+                            cluster::should_cluster(&alignment_prediction),
+                            Some(alignment_prediction),
+                        )
+                    };
+
+                if will_cluster {
+                    alignment_result = Some(graph.add_alignment_from_bytes(&align, &seq, &qual));
+
+                    // debug check for bugs in the alignment prediction algorithm
+                    if let Some(alignment_prediction) = alignment_prediction {
+                        assert_eq!(alignment_prediction, alignment_result.unwrap())
+                    }
+
+                    did_cluster = true;
+
+                    debug!("Added result:\t{alignment_result:?}");
+
+                    // don't need to check any more graphs, we are done
+                    break;
+                }
+            }
+
+            // do we need to add a new graph, because this read didn't cluster?
+            if !did_cluster {
+                let mut new_graph = spoa::Graph::new();
+                let align = alignment_engine.align_from_bytes(&seq, &new_graph);
+                alignment_result = Some(new_graph.add_alignment_from_bytes(&align, &seq, &qual));
+
+                debug!("Added new graph");
+                graphs.push(new_graph);
+            }
 
             // should we report the original reads first?
+
             if args.report_original_reads {
-                let header = header_builder.make_original_header(&read, idx, &alignment_result);
+                let header = header_builder.make_original_header(
+                    &read,
+                    read_idx,
+                    &alignment_result.unwrap(),
+                );
 
                 writeln!(
                     result,
@@ -166,18 +215,21 @@ fn consensus_call(
                 )?;
             }
 
-            idx += 1;
+            read_idx += 1;
+            first_read_in_group = false;
         }
 
-        // Create a consensus read
-        let consensus = poa_graph.consensus_with_quality();
+        for (idx, graph) in graphs.iter_mut().enumerate() {
+            // Create a consensus read
+            let consensus = graph.consensus_with_quality();
 
-        let seq = &consensus.sequence;
-        let qual = &consensus.quality;
+            let seq = &consensus.sequence;
+            let qual = &consensus.quality;
 
-        let header = header_builder.finalize();
+            let header = header_builder.make_consensus_header(idx);
 
-        write!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
+            writeln!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
+        }
     }
 
     Ok(result)

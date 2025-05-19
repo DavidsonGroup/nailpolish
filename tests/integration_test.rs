@@ -36,7 +36,7 @@ fn summary() {
 }
 
 #[test]
-fn consensus_1t() {
+fn consensus_1t_no_clustering() {
     let temp = assert_fs::NamedTempFile::new("consensus.fastq").unwrap();
     let path = temp.path().to_str().unwrap();
 
@@ -52,11 +52,12 @@ fn consensus_1t() {
             "1",
             "--report-original-header",
             "--report-original-reads",
+            "--disable-clusters",
         ])
         .assert()
         .success();
 
-    const CORRECT_FILE: &str = "tests/correct/consensus.fastq";
+    const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
     let cmp_cmd = format!("diff {} {}", temp.path().to_str().unwrap(), CORRECT_FILE);
 
     let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
@@ -65,7 +66,7 @@ fn consensus_1t() {
 }
 
 #[test]
-fn consensus_4t() {
+fn consensus_4t_no_clustering() {
     let temp = assert_fs::NamedTempFile::new("consensus_4t.fastq").unwrap();
     let path = temp.path().to_str().unwrap();
 
@@ -81,11 +82,12 @@ fn consensus_4t() {
             "4",
             "--report-original-header",
             "--report-original-reads",
+            "--disable-clusters",
         ])
         .assert()
         .success();
 
-    const CORRECT_FILE: &str = "tests/correct/consensus.fastq";
+    const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
     let cmp_cmd = format!("diff {} {}", temp.path().to_str().unwrap(), CORRECT_FILE);
 
     let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
@@ -106,6 +108,35 @@ fn extract_3() {
         .success();
 
     const CORRECT_FILE: &str = "tests/correct/extract_3.fastq";
+    let cmp_cmd = format!("diff {} {}", temp.path().to_str().unwrap(), CORRECT_FILE);
+
+    let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
+
+    temp.close().unwrap();
+}
+
+#[test]
+fn consensus_4t_with_clustering() {
+    let temp = assert_fs::NamedTempFile::new("consensus_4t.fastq").unwrap();
+    let path = temp.path().to_str().unwrap();
+
+    let mut command = Command::cargo_bin("nailpolish").unwrap();
+
+    let _ = command
+        .args([
+            "consensus",
+            SAMPLE_FASTQ,
+            "-o",
+            path,
+            "--threads",
+            "4",
+            "--report-original-header",
+            "--report-original-reads",
+        ])
+        .assert()
+        .success();
+
+    const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
     let cmp_cmd = format!("diff {} {}", temp.path().to_str().unwrap(), CORRECT_FILE);
 
     let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();

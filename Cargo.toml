@@ -52,3 +52,7 @@ opt-level = 3
 [profile.profiling]
 inherits = "release"
 debug = true
+
+[features]
+simde = ["spoa/simde"]
+nonative = ["spoa/nonative"]

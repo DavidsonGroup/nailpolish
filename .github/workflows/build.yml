@@ -112,7 +112,7 @@ jobs:
         run: echo "CARGO_BUILD_DESC=built on GitHub Actions from commit $(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Build for macOS (x86_64)
-        run: cargo build --release --target x86_64-apple-darwin
+        run: cargo build --release --target x86_64-apple-darwin --features nonative
 
       - name: Build for macOS (arm64)
         run: cargo build --release --target aarch64-apple-darwin

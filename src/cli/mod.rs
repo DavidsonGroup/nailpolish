@@ -146,10 +146,6 @@ pub struct ConsensusArgs {
     #[arg(short, long, default_value_t = 4)]
     pub threads: usize,
 
-    /// only show the duplicated reads, not the single ones
-    #[arg(long, action)]
-    pub duplicates_only: bool,
-
     /// for each duplicate group of reads, report the original reads along with the consensus
     #[arg(long, action)]
     pub report_original_reads: bool,

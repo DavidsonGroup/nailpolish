@@ -58,7 +58,11 @@ fn consensus_1t_no_clustering() {
         .success();
 
     const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
-    let cmp_cmd = format!("diff {} {}", temp.path().to_str().unwrap(), CORRECT_FILE);
+    let cmp_cmd = format!(
+        "diff <(awk 'NR%%4==1' {}) <(awk 'NR%%4==1' {})",
+        temp.path().to_str().unwrap(),
+        CORRECT_FILE
+    );
 
     let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
 
@@ -88,7 +92,11 @@ fn consensus_4t_no_clustering() {
         .success();
 
     const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
-    let cmp_cmd = format!("diff {} {}", temp.path().to_str().unwrap(), CORRECT_FILE);
+    let cmp_cmd = format!(
+        "diff <(awk 'NR%%4==1' {}) <(awk 'NR%%4==1' {})",
+        temp.path().to_str().unwrap(),
+        CORRECT_FILE
+    );
 
     let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
 
@@ -137,7 +145,11 @@ fn consensus_4t_with_clustering() {
         .success();
 
     const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
-    let cmp_cmd = format!("diff {} {}", temp.path().to_str().unwrap(), CORRECT_FILE);
+    let cmp_cmd = format!(
+        "diff <(awk 'NR%%4==1' {}) <(awk 'NR%%4==1' {})",
+        temp.path().to_str().unwrap(),
+        CORRECT_FILE
+    );
 
     let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
 

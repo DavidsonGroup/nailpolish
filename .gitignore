@@ -5,6 +5,7 @@
 
 .DS_Store
 .idea
+.vscode
 
 # testing files
 /tests/samples/local

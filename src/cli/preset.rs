@@ -17,9 +17,15 @@ impl PresetBarcodeFormats {
     /// Returns the corresponding regex for the preset
     pub fn to_regex(&self) -> Result<Regex, regex::Error> {
         Regex::new(match self {
-            PresetBarcodeFormats::BcUmi => r"^([ATCG]{16})_([ATCG]{12})",
-            PresetBarcodeFormats::UmiTools => r"_([ATCG]+)$",
-            PresetBarcodeFormats::Illumina => r":([ATCG]+)$",
+            PresetBarcodeFormats::BcUmi => r"^([ATCGNX]{16})_([ATCGNX]{12})",
+            PresetBarcodeFormats::UmiTools => r"_([ATCGNX]+)$",
+            PresetBarcodeFormats::Illumina => r":([ATCGNX]+)$",
         })
     }
+}
+
+#[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
+pub enum PresetOutputFormats {
+    Fastq,
+    Fasta,
 }

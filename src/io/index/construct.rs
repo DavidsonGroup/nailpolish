@@ -5,6 +5,7 @@ use super::{DuplicateGroupKey, Index, ReadLocation, ReadLocationTrait, RecordIde
 use crate::io::reads::QualityCompute;
 
 use anyhow::{bail, Result};
+use humansize::{format_size, FormatSizeOptions};
 use needletail::parser::SequenceRecord;
 use needletail::FastxReader;
 use regex::Regex;
@@ -32,16 +33,42 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
 
     // create the .fastq reader
     let f = File::open(path.fastq()).expect("File could not be opened");
+    let metadata = f.metadata()?;
+
+    let total_bytes = metadata.len();
+
     let mut reader = BufReader::new(f);
 
     let mut index = Index::new(path);
 
     let filters = super::filter::FilterOpts::new(cli);
 
+    let size_formatter = FormatSizeOptions::from(humansize::BINARY)
+        .decimal_places(1)
+        .decimal_zeroes(1)
+        .units(humansize::Kilo::Decimal)
+        .space_after_value(false);
+
+    const REPORT_INTERVAL: u64 = 2 * 1024 * 1024 * 1024; // 2GB
+    let mut last_report = 0;
+
     // callback function to process each read that comes in & add to the index
     let callback = |loc: ReadLocation, key: DuplicateGroupKey, seq: SequenceRecord| {
+        let pos = loc.pos();
+
+        // should we report our current progress?
+        if pos - last_report > REPORT_INTERVAL {
+            last_report = pos;
+
+            info!(
+                "proc: {} / {}",
+                format_size(pos, size_formatter),
+                format_size(total_bytes, size_formatter)
+            );
+        }
+
         let key = if !key.is_invalid() && !should_keep(&seq, &filters) {
-            DuplicateGroupKey::Filtered(loc.pos())
+            DuplicateGroupKey::Filtered(pos)
         } else {
             key
         };
@@ -64,12 +91,16 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
         iter_lines_with_regex(&mut reader, &re, callback)?
     }
 
+    info!(
+        "proc: {} / {}",
+        format_size(total_bytes, size_formatter),
+        format_size(total_bytes, size_formatter)
+    );
+
     index.mark_indexation_complete(reader.stream_position()? as f64 / (1024.0 * 1024.0))?;
     index.metadata().report_read_counts();
 
     index.write()?;
-
-    info!("Complete");
 
     Ok(())
 }
@@ -92,9 +123,9 @@ where
         let rec = rec.expect("Invalid record");
 
         let read_location = ReadLocation {
-            _pos: rec.position().byte() as usize,
-            _byte_len: rec.all().len() + 1,
-            seq_len: rec.num_bases(),
+            _pos: rec.position().byte(),
+            _byte_len: (rec.all().len() as u32) + 1,
+            seq_len: rec.num_bases() as u32,
             qual: rec.phred_quality_avg().unwrap_or_default(),
         };
         let header = std::str::from_utf8(rec.id())?;
@@ -199,7 +230,7 @@ fn iter_lines_with_cluster_file(
 
 /// Extract identifier components from a read header using a regex pattern
 /// Returns the number of captures and the constructed identifier
-fn extract_header_id(header: &str, re: &Regex, pos: usize) -> Result<(usize, RecordIdentifier)> {
+fn extract_header_id(header: &str, re: &Regex, pos: u64) -> Result<(usize, RecordIdentifier)> {
     let Some(captures) = re.captures(header) else {
         bail!(IndexGenerationErr::NoMatch {
             header: String::from(header.trim()),
@@ -229,11 +260,7 @@ with capture group
     {re:?}
 suggestion: inspect the read using `tail -c +{pos} <fastq> | head -n 5`"
     )]
-    NoMatch {
-        header: String,
-        re: Regex,
-        pos: usize,
-    },
+    NoMatch { header: String, re: Regex, pos: u64 },
 
     #[error(
         "inconsistent identifier count:
@@ -246,7 +273,7 @@ using capture group
     DifferentMatchCounts {
         header: String,
         re: Regex,
-        pos: usize,
+        pos: u64,
         count: usize,
         expected: usize,
     },

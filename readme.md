@@ -2,10 +2,11 @@
 
 [![Build status](https://github.com/olliecheng/nailpolish/actions/workflows/build.yml/badge.svg)](https://github.com/olliecheng/nailpolish/actions/workflows/build.yml) ![Static Badge](https://img.shields.io/badge/libc-%E2%89%A5%202.17-blue) [![GitHub Release](https://img.shields.io/github/v/release/olliecheng/nailpolish?include_prereleases)](https://github.com/DavidsonGroup/nailpolish/tags)
 
-`nailpolish` is a collection of tools made for the deduplication of UMIs when working with long read single cell data.
+`nailpolish` is a software tool made for the deduplication of UMI and barcodes when working with long read single cell data.
 
 <div align="center">
-  <a href="#install">Install</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="#example">Example</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="#usage">Usage</a>
+  <a href="#install">Install</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="#example">Example</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="#usage">Usage</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="https://davidsongroup.github.io/nailpolish/">Docs</a>
+
 </div>
 
 ## Install
@@ -22,137 +23,124 @@ section for macOS (Intel & Apple Silicon) and x64-based Linux systems.
 `nailpolish` is in active development. If you are running into any issues, please check to ensure that you are using
 the most current version of the software!
 
+For detailed usage instructions, see the [documentation](https://davidsongroup.github.io/nailpolish/).
+
 ## Example
 
 Say I have a demultiplexed `sample.fastq` file of the following form—for instance, one generated using
 the [Flexiplex demultiplexer](https://github.com/DavidsonGroup/flexiplex):
 
-```
+```bash
+# original file has BC/UMI duplicates
+$ head -n 4 sample.fastq
 @BC1_UMI1
-sequence...
-+
-quality...
+...
+@BC2_UMI2
+...
+@BC1_UMI1
+...
+
+# index the file
+$ nailpolish index sample.fastq
+
+# summarise duplicate rates in an accessible format
+$ nailpolish summary sample.fastq
+<creates HTML summary file>
+
+# generate consensus file
+$ nailpolish consensus sample.fastq | head
+  @BC1_UMI1|type=consensus|
+  ...
+  @BC2_UMI2|type=single|
+  ...
 ```
 
-I first create an _index_ file using
+Consensus generation will output all non-duplicated and consensus called reads, removing all the original duplicated reads in the process.
 
-```sh
-$ nailpolish index --file sample.fastq --output index.tsv
-```
+There are options to:
+- Set the filtering options to determine which duplicate groups should be called
+- Configure the output format and what information to report
+- Control the false positive prevention algorithm
 
-I can view summary statistics about duplicate rates using:
-
-```sh
-$ nailpolish summary --index index.tsv
-```
-
-and I can also transparently remove duplicate reads using:
-
-```sh
-$ nailpolish consensus \
-  --index index.tsv \
-  --input sample.fastq \
-  --output sample_called.fastq \
-  --threads 4
-```
-
-which will output all non-duplicated and consensus called reads, removing all the original duplicated reads in the
-process.
+See the [documentation](https://davidsongroup.github.io/nailpolish/) for more information.
 
 ## Usage
 
 ### Help
 
 ```
-💅 nailpolish version 0.1.0
-   ──────────────────────────────────
-   tools for consensus calling barcode and UMI duplicates
-   https://github.com/DavidsonGroup/nailpolish
+nailpolish v0.2.0, commit #9ddba6c
+──────────────────────────────────
+tools for finding, grouping, and consensus calling PCR duplicates
 
-Usage: nailpolish generate-index [OPTIONS] --file <FILE>
-       nailpolish summary --index <INDEX>
-       nailpolish call [OPTIONS] --index <INDEX> --input <INPUT>
-       nailpolish group [OPTIONS] --index <INDEX> --input <INPUT> [COMMAND]...
+git:  https://github.com/DavidsonGroup/nailpolish
+docs: https://davidsongroup.github.io/nailpolish/
+
+
+Usage: nailpolish index [OPTIONS] <INPUT> [PRESET]
+       nailpolish summary [OPTIONS] <INPUT>
+       nailpolish consensus [OPTIONS] <INPUT>
+       nailpolish extract [OPTIONS] <INPUT>
        nailpolish help [COMMAND]...
 
 Options:
   -h, --help     Print help
   -V, --version  Print version
 
-nailpolish generate-index:
-Create an index file from a demultiplexed .fastq, if one doesn't already exist
-      --file <FILE>    the input .fastq file
-      --index <INDEX>  the output index file [default: index.tsv]
-  -h, --help           Print help
+nailpolish index:
+Create an index file from a demultiplexed .fastq
+      --overwrite                      overwrite an existing index file, if it exists
+      --clusters <CLUSTERS>            whether to use a file containing pre-clustered reads, with every line in one of two formats:
+                                         1. READ_ID;BARCODE
+                                         2. READ_ID;BARCODE;UMI
+      --barcode-regex <BARCODE_REGEX>  barcode regex format type, for custom header styles. this will override the preset given.
+                                       for example, for the `bc-umi` preset:
+                                           ^([ATCG]{16})_([ATCG]{12})
+      --skip-unmatched                 skip, instead of error, on reads which are not accounted for:
+                                       - if a cluster file is passed, any reads which are not in any cluster
+                                       - if a barcode regex or preset is used (default), any reads which do not match the regex
+      --len <LEN>                      filter lengths to a value within the given float interval [a,b].
+                                       a is the minimum, and b is the maximum (both inclusive).
+                                       alternatively, a can be `-inf` and b can be `inf.
+                                       an unbounded interval (i.e. no length filter) is given by `0,inf`. [default: 0,15000]
+      --qual <QUAL>                    filter average read quality to a value within the given float interval [a,b].
+                                       see the docs for `--len` for documentation on how to use the interval. [default: 0,inf]
+  -h, --help                           Print help (see more with '--help')
+  <INPUT>                          the input .fastq file
+  [PRESET]                         [default: bc-umi] [possible values: bc-umi, umi-tools, illumina]
 
 nailpolish summary:
 Generate a summary of duplicate statistics from an index file
-      --index <INDEX>  the index file
-  -h, --help           Print help
+  -o, --output <OUTPUT>  Output .html file. By default, will write to <file>.summary.html
+  -h, --help             Print help
+  <INPUT>            Input .fastq file
 
-nailpolish call:
+nailpolish consensus:
 Generate a consensus-called 'cleaned up' file
-      --index <INDEX>          the index file
-      --input <INPUT>          the input .fastq
-      --output <OUTPUT>        the output .fasta; note that quality values are not preserved
-  -t, --threads <THREADS>      the number of threads to use [default: 4]
-  -d, --duplicates-only        only show the duplicated reads, not the single ones
-  -r, --report-original-reads  for each duplicate group of reads, report the original reads along with the consensus
-  -h, --help                   Print help
+  -o, --output <OUTPUT>         the output .fastq, or empty for stdout
+  -t, --threads <THREADS>       the number of threads to use [default: 4]
+      --duplicates-only         only show the duplicated reads, not the single ones
+      --report-original-reads   for each duplicate group of reads, report the original reads along with the consensus
+      --report-original-header  if the original read headers are valuable, this will create a orig_header field in the consensus called result with the entire original read header
+      --extra-stats             add debugging information to the read header [intended for internal development] warning: since timings are reported, the output will not be identical across runs
+      --no-clustering           disable the clustering algorithm this will prevent nailpolish from detecting and separating false duplicates
+  -h, --help                    Print help
+  <INPUT>                   the input .fastq
 
-nailpolish group:
-'Group' duplicate reads, and pass to downstream applications
-      --index <INDEX>      the index file
-      --input <INPUT>      the input .fastq
-      --output <OUTPUT>    the output location, or default to stdout
-      --shell <SHELL>      the shell used to run the given command [default: bash]
-  -t, --threads <THREADS>  the number of threads to use. this will not guard against race conditions in any downstream applications used. this will effectively set the number of individual processes to launch [default: 1]
-  -h, --help               Print help
-  [COMMAND]...         the command to run. any groups will be passed as .fastq standard input [default: cat]
+nailpolish extract:
+Extract reads beloning to specific group queries a .fastq file, unmodified
+  -o, --output <OUTPUT>          the output .fastq, or empty for stdout
+      --id <ID>                  Filter by specific group IDs (comma-separated)
+      --key <KEY>                Filter by regex pattern for the key
+      --group-size <GROUP_SIZE>  Filter by the size of the duplicate group
+      --format <FORMAT>          Output format type [default: fastq] [possible values: fastq, fasta]
+  -h, --help                     Print help
+  <INPUT>                    the input .fastq
 
 nailpolish help:
 Print this message or the help of the given subcommand(s)
   [COMMAND]...  Print help for the subcommand(s)
 ```
-
-<details>
-<summary>Example of <code>--duplicates-only</code> and <code>--report-original-reads</code></summary>
-Suppose I have a demultiplexed read file of the following format (so that <code>seq2</code> and <code>seq3</code> are duplicates):
-<pre>
-@BCUMI_1
-seq1
-@BCUMI_2
-seq2
-@BCUMI_2
-seq3
-</pre>
-Then, the effects of the following flags are:
-<pre>
-(default):
-  >BCUMI_1_SIN
-  seq1
-  >BCUMI_2_CON_2
-  seq2_and_3_consensus
-</pre>
-
-<pre>
---duplicates-only:
-  >BCUMI_2_CON_2
-  seq2_and_3_consensus
-</pre>
-
-<pre>
---report-original-reads
-  >BCUMI_1_SIN
-  seq1
-  >BCUMI_2_DUP_1_of_2
-  seq2
-  >BCUMI_2_DUP_2_of_2
-  seq3
-  >BCUMI_2_CON_2
-  seq2_and_3_consensus
-</pre>
-</details>
 
 ## Install from source
 

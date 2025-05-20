@@ -1,3 +1,8 @@
+use anyhow::Result;
+use std::fs::File;
+use std::io::BufWriter;
+use std::path::Path;
+
 /// Calculates a running average when a new value is added to an existing average
 pub(crate) fn running_avg(existing: f32, new: f32, new_count: usize) -> f32 {
     let new_count = new_count as f32;
@@ -15,4 +20,20 @@ where
     } else {
         sum / count as f32
     }
+}
+
+/// Returns a writer to the given path or stdout if no path is provided.
+pub(crate) fn get_writer(path: Option<&Path>) -> Result<Box<dyn std::io::Write>> {
+    let writer: Box<dyn std::io::Write> = match path {
+        Some(v) => {
+            let wtr = BufWriter::with_capacity(*crate::env::WRITE_BUF_CAPACITY, File::create(v)?);
+            Box::new(wtr)
+        }
+        None => {
+            let wtr = BufWriter::with_capacity(*crate::env::WRITE_BUF_CAPACITY, std::io::stdout());
+            Box::new(wtr)
+        }
+    };
+
+    Ok(writer)
 }

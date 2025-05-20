@@ -64,7 +64,7 @@ pub enum Commands {
     Consensus(ConsensusArgs),
 
     #[command(arg_required_else_help = true)]
-    Group(GroupArgs),
+    Extract(ExtractArgs),
 }
 
 #[derive(Debug, Args)]
@@ -138,17 +138,13 @@ pub struct ConsensusArgs {
     /// the input .fastq
     pub input: PathBuf,
 
-    /// the output .fastq
-    #[arg(short)]
-    pub output: PathBuf,
+    /// the output .fastq, or empty for stdout
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
 
     /// the number of threads to use
     #[arg(short, long, default_value_t = 4)]
     pub threads: usize,
-
-    /// only show the duplicated reads, not the single ones
-    #[arg(long, action)]
-    pub duplicates_only: bool,
 
     /// for each duplicate group of reads, report the original reads along with the consensus
     #[arg(long, action)]
@@ -161,25 +157,37 @@ pub struct ConsensusArgs {
     /// add debugging information to the read header [intended for internal development]
     /// warning: since timings are reported, the output will not be identical across runs
     #[arg(long, action)]
-    pub debugging_header: bool,
+    pub extra_stats: bool,
+
+    /// disable the clustering algorithm
+    /// this will prevent nailpolish from detecting and separating false duplicates
+    #[arg(long, action)]
+    pub no_clustering: bool,
 }
 
-/// Tag each read by its UMI group, and write to a .fastq file. Due to the large amounts of
-/// random file access required, this may take a while.
+/// Extract reads beloning to specific group queries a .fastq file, unmodified.
 #[derive(Debug, Args)]
-pub struct GroupArgs {
+pub struct ExtractArgs {
     /// the input .fastq
     pub input: PathBuf,
 
-    /// the output .fastq
+    /// the output .fastq, or empty for stdout
     #[arg(short, long)]
     pub output: Option<PathBuf>,
 
     /// Filter by specific group IDs (comma-separated)
-    #[arg(long, conflicts_with = "key")]
+    #[arg(long, conflicts_with_all = [ "key", "group_size" ])]
     pub id: Option<String>,
 
     /// Filter by regex pattern for the key
-    #[arg(long, conflicts_with = "id")]
+    #[arg(long, conflicts_with_all = [ "id", "group_size" ])]
     pub key: Option<String>,
+
+    /// Filter by the size of the duplicate group
+    #[arg(long, conflicts_with_all = ["id", "key"])]
+    pub group_size: Option<usize>,
+
+    /// Output format type
+    #[arg(long, default_value = "fastq")]
+    pub format: preset::PresetOutputFormats,
 }

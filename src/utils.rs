@@ -29,7 +29,10 @@ pub(crate) fn get_writer(path: Option<&Path>) -> Result<Box<dyn std::io::Write>>
             let wtr = BufWriter::with_capacity(*crate::env::WRITE_BUF_CAPACITY, File::create(v)?);
             Box::new(wtr)
         }
-        None => Box::new(std::io::stdout()),
+        None => {
+            let wtr = BufWriter::with_capacity(*crate::env::WRITE_BUF_CAPACITY, std::io::stdout());
+            Box::new(wtr)
+        }
     };
 
     Ok(writer)

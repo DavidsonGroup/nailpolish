@@ -137,8 +137,11 @@ impl Index {
         index
     }
 
-    pub fn get_by_id(&self, id: usize) -> Option<DuplicateGroup> {
-        todo!();
+    /// Retrieves a duplicate group by its ID.
+    pub fn get_by_id(&self, index: usize) -> Option<DuplicateGroup> {
+        self.groups
+            .get_index(index)
+            .map(|(key, reads)| DuplicateGroup { key, reads, index })
     }
 
     /// Retrieves a duplicate group by its record identifier.
@@ -219,6 +222,7 @@ impl ArchivedIndex {
         }
     }
 
+    /// Retrieves a duplicate group by its ID.
     pub fn get_by_id(&self, id: usize) -> Option<ArchivedDuplicateGroup> {
         self.groups
             .get_index(id)

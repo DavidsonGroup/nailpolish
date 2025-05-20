@@ -53,7 +53,7 @@ fn report_rstats(start: std::time::Instant) {
 #[cfg(windows)]
 fn report_rstats(start: std::time::Instant) {
     // Only reports real time on Windows
-    let real_time = start.elapsed.as_secs();
+    let real_time = start.elapsed().as_secs();
     info!("real time: {real_time}")
 }
 

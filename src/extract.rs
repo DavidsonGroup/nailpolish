@@ -15,7 +15,7 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
     let index_rdr = IndexReader::new(&paths)?;
 
     info!(
-        "Grouping reads from {} using index {} → {}",
+        "Extracting reads from {} using index {} → {}",
         paths.fastq().display(),
         paths.index().display(),
         args.output

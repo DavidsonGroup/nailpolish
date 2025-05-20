@@ -6,7 +6,7 @@
 # Commands
 
 - [nailpolish index](commands/index.md)
-- [nailpolish summary](commands/summarize.md)
+- [nailpolish summary](commands/summary.md)
 - [nailpolish consensus](commands/consensus.md)
 
 # Reference

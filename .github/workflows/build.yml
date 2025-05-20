@@ -83,7 +83,7 @@ jobs:
           fail_on_unmatched_files: true
 
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: test
 
     steps:

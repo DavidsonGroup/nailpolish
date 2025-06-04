@@ -18,7 +18,7 @@ log = "0.4.22"
 needletail = "^0.6.3"
 rayon = "1.10.0"
 regex = "1.10.6"
-spoa = { path = "deps/spoa-rs", features = ["nonative"] }
+spoa = { path = "deps/spoa-rs" }
 thiserror = "1.0.64"
 predicates = "3.1.2"
 indoc = "2.0.5"
@@ -55,4 +55,4 @@ debug = true
 
 [features]
 simde = ["spoa/simde"]
-# nonative = ["spoa/nonative"]
+nonative = ["spoa/nonative"]

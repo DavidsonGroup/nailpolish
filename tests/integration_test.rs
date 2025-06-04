@@ -59,7 +59,7 @@ fn consensus_1t_no_clustering() {
 
     const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
     let cmp_cmd = format!(
-        "diff <(awk 'NR%%4==1' {}) <(awk 'NR%%4==1' {})",
+        "diff <({}) <({})",
         temp.path().to_str().unwrap(),
         CORRECT_FILE
     );
@@ -93,7 +93,7 @@ fn consensus_4t_no_clustering() {
 
     const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
     let cmp_cmd = format!(
-        "diff <(awk 'NR%%4==1' {}) <(awk 'NR%%4==1' {})",
+        "diff <({}) <({})",
         temp.path().to_str().unwrap(),
         CORRECT_FILE
     );
@@ -146,7 +146,7 @@ fn consensus_4t_with_clustering() {
 
     const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
     let cmp_cmd = format!(
-        "diff <(awk 'NR%%4==1' {}) <(awk 'NR%%4==1' {})",
+        "diff <({}) <({})",
         temp.path().to_str().unwrap(),
         CORRECT_FILE
     );

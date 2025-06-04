@@ -14,3 +14,4 @@ Cargo.lock
 **/*.rs.bk
 
 .github/copilot-instructions.md
+live-sync.sh

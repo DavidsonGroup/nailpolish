@@ -9,10 +9,8 @@ use std::str;
 
 /// A struct to format the header of a consensus sequence
 pub struct HeaderFormatter<'a> {
-    group: &'a ArchivedDuplicateGroup<'a>,
     args: &'a ConsensusArgs,
     key: String,
-    group_size: usize,
     id: usize,
     start_time: Instant,
     consensus_type: String,
@@ -44,18 +42,14 @@ impl<'a> HeaderFormatter<'a> {
         // placeholder
         let orig_headers = vec![Vec::new()];
 
-        let s = Self {
-            group,
+        Self {
             args,
             key,
-            group_size,
             id,
             start_time,
             consensus_type,
             orig_headers,
-        };
-
-        s
+        }
     }
 
     pub fn add_read(&mut self, cluster_id: usize, read: &SequenceRecord) {

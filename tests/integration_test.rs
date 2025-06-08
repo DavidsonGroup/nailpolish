@@ -179,8 +179,6 @@ fn consensus_with_cluster_file() {
         .success();
 
     // For now, just check the file was created successfully
-    // TODO: Create expected output file for comparison
-    temp_consensus.assert(predicate::path::exists());
 
     const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
     let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();

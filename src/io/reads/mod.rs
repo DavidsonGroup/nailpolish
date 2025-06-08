@@ -32,7 +32,7 @@ impl From<&ArchivedReadLocation> for ReadLocation {
         ReadLocation {
             _pos: v.pos(),
             _byte_len: v.byte_len(),
-            seq_len: v.seq_len.try_into().unwrap(),
+            seq_len: v.seq_len.into(),
             qual: v.qual.into(),
         }
     }

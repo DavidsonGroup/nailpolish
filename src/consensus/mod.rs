@@ -164,7 +164,7 @@ fn consensus_call(
             "@{}\n{}\n+\n{}",
             header,
             str::from_utf8(&seq)?,
-            str::from_utf8(&qual)?
+            str::from_utf8(qual)?
         )?;
 
         Ok((result, 1, false))
@@ -207,7 +207,7 @@ fn consensus_call(
                 };
 
                 if will_cluster {
-                    let alignment_result = graph.add_alignment_from_bytes(&align, &seq, &qual);
+                    let alignment_result = graph.add_alignment_from_bytes(&align, &seq, qual);
 
                     // add each read in the duplicate group to the graph
                     inserted_cluster_id = cluster_id;
@@ -224,7 +224,7 @@ fn consensus_call(
             if !did_cluster {
                 let mut new_graph = spoa::Graph::new();
                 let align = alignment_engine.align_from_bytes(&seq, &new_graph);
-                alignment_predictions.push(new_graph.add_alignment_from_bytes(&align, &seq, &qual));
+                alignment_predictions.push(new_graph.add_alignment_from_bytes(&align, &seq, qual));
 
                 debug!("Added new graph");
                 graphs.push(new_graph);
@@ -247,7 +247,7 @@ fn consensus_call(
                     "@{}\n{}\n+\n{}",
                     header,
                     str::from_utf8(&seq).unwrap(),
-                    str::from_utf8(&qual).unwrap()
+                    str::from_utf8(qual).unwrap()
                 )?;
             }
 

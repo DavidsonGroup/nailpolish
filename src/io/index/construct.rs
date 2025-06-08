@@ -9,8 +9,9 @@ use humansize::{format_size, FormatSizeOptions};
 use needletail::parser::SequenceRecord;
 use needletail::FastxReader;
 use regex::Regex;
+use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Seek};
+use std::io::{BufRead, BufReader, Seek};
 use std::path::Path;
 use thiserror::Error;
 
@@ -77,8 +78,8 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
         Ok(())
     };
 
-    if let Some(loc) = &cli.clusters {
-        todo!();
+    if let Some(cluster_file) = &cli.clusters {
+        iter_lines_with_cluster_file(&mut reader, cluster_file, callback)?;
     } else {
         let re = match &cli.barcode_regex {
             Some(v) => {
@@ -155,77 +156,72 @@ where
     Ok(())
 }
 
-fn iter_lines_with_cluster_file(
-    reader: BufReader<File>,
-    // wtr: &mut IndexWriter,
+fn iter_lines_with_cluster_file<F>(
+    reader: &mut BufReader<File>,
     cluster_file: &Path,
-    skip_invalid_ids: bool,
-) -> Result<()> {
-    todo!();
-    /*
-    todo: filepath
-        let mut cluster_rdr = csv::ReaderBuilder::new()
-            .delimiter(b';')
-            .has_headers(false)
-            .from_path(filepath)?;
+    mut callback: F,
+) -> Result<()>
+where
+    F: FnMut(ReadLocation, DuplicateGroupKey, SequenceRecord) -> Result<()>,
+{
+    // Read cluster file line by line
+    info!("Reading identifiers from file {}", cluster_file.display());
 
-    // first, we will read the clusters file
-    info!("Reading identifiers from clusters file...");
+    let cluster_f = File::open(cluster_file)?;
+    let cluster_reader = BufReader::new(cluster_f);
+    let mut cluster_map = HashMap::new();
 
-    let mut cluster_map = std::collections::HashMap::new();
+    for line in cluster_reader.lines() {
+        let line = line?;
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
 
-    for result in clusters.records() {
-        let record = result?;
+        let parts: Vec<&str> = line.split(';').collect();
+        if parts.len() != 2 {
+            bail!(IndexGenerationErr::InvalidClusterRow {
+                row: line.to_string()
+            });
+        }
 
-        let read_id = record[0].to_string();
-        let identifier = match record.len() {
-            // in this case, there is just one identifier (no BC and UMI) so we read the first
-            // column directly as the 'identifier'
-            2 => record[1].to_string(),
-
-            // in this case, there are two identifiers (i.e. BC and UMI) so we combine them to
-            // produce an 'identifier'
-            3 => format!("{}_{}", &record[1], &record[2]),
-
-            // doesn't make sense
-            _ => bail!(InvalidClusterRow {
-                row: record.as_slice().to_string()
-            }),
-        };
-
+        let read_id = parts[0].to_string();
+        let identifier = RecordIdentifier::from_recs(&[parts[1]]);
         cluster_map.insert(read_id, identifier);
     }
 
-    info!("Finished reading clusters. ");
+    info!(
+        "Finished reading clusters. Found {} cluster mappings",
+        cluster_map.len()
+    );
 
     let mut fastq_reader = needletail::parser::FastqReader::new(reader);
 
     while let Some(rec) = fastq_reader.next() {
         let rec = rec.expect("Invalid record");
-        let pos = rec.position().byte() as usize;
-        let bytes_len = rec.all().len() + 1;
 
-        match cluster_map.get(&rec.id) {}
-        let Some(identifier) = cluster_map.get(&rec.id) else {
-            if !skip_invalid_ids {
-                bail!(RowNotInClusters { header: rec.id })
-            }
-            wtr.metadata.unmatched_read_count += 1;
-            continue;
+        let read_location = ReadLocation {
+            _pos: rec.position().byte(),
+            _byte_len: (rec.all().len() as u32) + 1,
+            seq_len: rec.num_bases() as u32,
+            qual: rec.phred_quality_avg().unwrap_or_default(),
         };
-        wtr.metadata.matched_read_count += 1;
 
-        rec.id = identifier.clone();
-        wtr.add_record(&rec, position, file_len, ignored)?;
+        let header = std::str::from_utf8(rec.id())?;
 
-        total_quality += rec.phred_quality_total();
-        total_len += rec.len();
+        let key = match cluster_map.get(header) {
+            Some(identifier) => DuplicateGroupKey::Normal(identifier.clone()),
+            None => {
+                bail!(IndexGenerationErr::RowNotInClusters {
+                    header: header.to_string()
+                });
+            }
+        };
+
+        callback(read_location, key, rec)?;
     }
 
-    wtr.write_size((fastq_reader.position().byte() as f64) / (1024u32.pow(3) as f64));
-
     Ok(())
-     */
 }
 
 /// Extract identifier components from a read header using a regex pattern

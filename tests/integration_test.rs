@@ -155,3 +155,56 @@ fn consensus_4t_with_clustering() {
 
     temp.close().unwrap();
 }
+
+#[test]
+fn consensus_with_cluster_file() {
+    use std::fs;
+
+    // Create temporary FASTQ file copy so we can create our own index
+    let temp_fastq = assert_fs::NamedTempFile::new("temp_sample.fastq").unwrap();
+    fs::copy(SAMPLE_FASTQ, temp_fastq.path()).unwrap();
+
+    let temp_consensus = assert_fs::NamedTempFile::new("consensus_cluster.fastq").unwrap();
+    let consensus_path = temp_consensus.path().to_str().unwrap();
+
+    // First, create index using cluster file
+    let mut index_command = Command::cargo_bin("nailpolish").unwrap();
+    index_command
+        .args([
+            "index",
+            temp_fastq.path().to_str().unwrap(),
+            "--clusters",
+            "tests/data/clusters.txt",
+        ])
+        .assert()
+        .success();
+
+    // Then run consensus
+    let mut consensus_command = Command::cargo_bin("nailpolish").unwrap();
+    consensus_command
+        .args([
+            "consensus",
+            temp_fastq.path().to_str().unwrap(),
+            "-o",
+            consensus_path,
+            "--threads",
+            "4",
+            "--report-original-header",
+            "--report-original-reads",
+            "--no-clustering",
+        ])
+        .assert()
+        .success();
+
+    // For now, just check the file was created successfully
+    // TODO: Create expected output file for comparison
+    temp_consensus.assert(predicate::path::exists());
+
+    const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
+    let cmp_cmd = format!("diff <({}) <({})", consensus_path, CORRECT_FILE);
+
+    let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
+
+    temp_fastq.close().unwrap();
+    temp_consensus.close().unwrap();
+}

@@ -19,8 +19,6 @@ pub struct IndexMetadata {
     pub gb: f64,
     /// Number of valid reads
     pub normal_reads: usize,
-    /// Number of reads with invalid identifiers
-    pub invalid_reads: usize,
     /// Number of reads filtered by quality/length
     pub filtered_reads: usize,
     /// Total number of reads processed
@@ -41,7 +39,6 @@ impl IndexMetadata {
         // update metadata
         self.filtered_reads += key.is_filtered() as usize;
         self.normal_reads += key.is_normal() as usize;
-        self.invalid_reads += key.is_invalid() as usize;
         self.total_reads += 1;
 
         self.avg_qual = utils::running_avg(

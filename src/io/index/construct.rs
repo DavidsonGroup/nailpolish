@@ -68,7 +68,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
             );
         }
 
-        let key = if !key.is_invalid() && !should_keep(&seq, &filters) {
+        let key = if !should_keep(&seq, &filters) {
             DuplicateGroupKey::Filtered(pos)
         } else {
             key
@@ -131,25 +131,21 @@ where
         };
         let header = std::str::from_utf8(rec.id())?;
 
-        let bc = extract_header_id(header, re, read_location.pos());
-        let barcode_location = match bc {
-            Ok((len, id)) => {
-                // check # of barcode groups is the same
-                let expected_len = *expected_len.get_or_insert(len);
-                if expected_len != len {
-                    bail!(IndexGenerationErr::DifferentMatchCounts {
-                        header: header.to_string(),
-                        re: re.clone(),
-                        pos: read_location.pos(),
-                        count: len,
-                        expected: expected_len
-                    })
-                }
+        let (len, id) = extract_header_id(header, re, read_location.pos())?;
+        
+        // check # of barcode groups is the same
+        let expected_len = *expected_len.get_or_insert(len);
+        if expected_len != len {
+            bail!(IndexGenerationErr::DifferentMatchCounts {
+                header: header.to_string(),
+                re: re.clone(),
+                pos: read_location.pos(),
+                count: len,
+                expected: expected_len
+            })
+        }
 
-                DuplicateGroupKey::Normal(id)
-            }
-            Err(_e) => DuplicateGroupKey::Invalid(read_location.pos()),
-        };
+        let barcode_location = DuplicateGroupKey::Normal(id);
 
         callback(read_location, barcode_location, rec)?;
     }

@@ -38,7 +38,6 @@ impl<'a> HeaderFormatter<'a> {
                     "consensus".to_string()
                 }
             }
-            ArchivedDuplicateGroupKey::Invalid(_) => "ignored".to_string(),
             ArchivedDuplicateGroupKey::Filtered(_) => "filtered".to_string(),
         };
 

@@ -58,13 +58,7 @@ fn consensus_1t_no_clustering() {
         .success();
 
     const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
-    let cmp_cmd = format!(
-        "diff <({}) <({})",
-        temp.path().to_str().unwrap(),
-        CORRECT_FILE
-    );
-
-    let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
+    let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
 
     temp.close().unwrap();
 }
@@ -92,13 +86,7 @@ fn consensus_4t_no_clustering() {
         .success();
 
     const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
-    let cmp_cmd = format!(
-        "diff <({}) <({})",
-        temp.path().to_str().unwrap(),
-        CORRECT_FILE
-    );
-
-    let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
+    let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
 
     temp.close().unwrap();
 }
@@ -145,13 +133,8 @@ fn consensus_4t_with_clustering() {
         .success();
 
     const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
-    let cmp_cmd = format!(
-        "diff <({}) <({})",
-        temp.path().to_str().unwrap(),
-        CORRECT_FILE
-    );
 
-    let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
+    let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
 
     temp.close().unwrap();
 }
@@ -165,7 +148,7 @@ fn consensus_with_cluster_file() {
     fs::copy(SAMPLE_FASTQ, temp_fastq.path()).unwrap();
 
     let temp_consensus = assert_fs::NamedTempFile::new("consensus_cluster.fastq").unwrap();
-    let consensus_path = temp_consensus.path().to_str().unwrap();
+    let path = temp_consensus.path().to_str().unwrap();
 
     // First, create index using cluster file
     let mut index_command = Command::cargo_bin("nailpolish").unwrap();
@@ -186,12 +169,11 @@ fn consensus_with_cluster_file() {
             "consensus",
             temp_fastq.path().to_str().unwrap(),
             "-o",
-            consensus_path,
+            path,
             "--threads",
             "4",
             "--report-original-header",
             "--report-original-reads",
-            "--no-clustering",
         ])
         .assert()
         .success();
@@ -201,9 +183,7 @@ fn consensus_with_cluster_file() {
     temp_consensus.assert(predicate::path::exists());
 
     const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
-    let cmp_cmd = format!("diff <({}) <({})", consensus_path, CORRECT_FILE);
-
-    let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
+    let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
 
     temp_fastq.close().unwrap();
     temp_consensus.close().unwrap();

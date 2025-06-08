@@ -73,27 +73,27 @@ pub struct ArchivedDuplicateGroup<'a> {
 ///   collisions and overwrites from occurring.
 #[derive(Archive, Serialize, Hash, Eq, PartialEq)]
 pub enum DuplicateGroupKey {
-    Normal(RecordIdentifier),
-    Filtered(u64),
+    Valid(RecordIdentifier),
+    Filtered(RecordIdentifier, u64),
 }
 
 impl DuplicateGroupKey {
     pub fn is_filtered(&self) -> bool {
-        matches!(self, Self::Filtered(_))
+        matches!(self, Self::Filtered(_, _))
     }
 
     pub fn is_normal(&self) -> bool {
-        matches!(self, Self::Normal(_))
+        matches!(self, Self::Valid(_))
     }
 }
 
 impl ArchivedDuplicateGroupKey {
     pub fn is_filtered(&self) -> bool {
-        matches!(self, Self::Filtered(_))
+        matches!(self, Self::Filtered(_, _))
     }
 
     pub fn is_normal(&self) -> bool {
-        matches!(self, Self::Normal(_))
+        matches!(self, Self::Valid(_))
     }
 }
 
@@ -137,7 +137,7 @@ impl Index {
 
     /// Retrieves a duplicate group by its record identifier.
     pub fn get_by_record_key(&self, id: RecordIdentifier) -> Option<DuplicateGroup> {
-        self.get_by_key(&DuplicateGroupKey::Normal(id))
+        self.get_by_key(&DuplicateGroupKey::Valid(id))
     }
 
     /// Adds a read to the index under the specified duplicate group key.

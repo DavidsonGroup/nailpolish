@@ -40,7 +40,7 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
         index
             .groups()
             .filter_map(|group| {
-                if let ArchivedDuplicateGroupKey::Normal(k) = group.key {
+                if let ArchivedDuplicateGroupKey::Valid(k) = group.key {
                     if re.is_match(&k.0) {
                         return Some(group.id);
                     }

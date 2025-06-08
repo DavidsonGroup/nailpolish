@@ -25,20 +25,20 @@ impl<'a> HeaderFormatter<'a> {
         let id = group.id;
 
         let key = match group.key {
-            ArchivedDuplicateGroupKey::Normal(id) => id.to_string(),
-            _ => "todo".to_string(),
+            ArchivedDuplicateGroupKey::Valid(id) => id.to_string(),
+            ArchivedDuplicateGroupKey::Filtered(id, _) => id.to_string(),
         };
 
         let start_time = Instant::now();
         let consensus_type = match group.key {
-            ArchivedDuplicateGroupKey::Normal(_) => {
+            ArchivedDuplicateGroupKey::Valid(_) => {
                 if group_size == 1 {
                     "single".to_string()
                 } else {
                     "consensus".to_string()
                 }
             }
-            ArchivedDuplicateGroupKey::Filtered(_) => "filtered".to_string(),
+            ArchivedDuplicateGroupKey::Filtered(_, _) => "filtered".to_string(),
         };
 
         // placeholder

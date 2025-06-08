@@ -54,7 +54,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
     let mut last_report = 0;
 
     // callback function to process each read that comes in & add to the index
-    let callback = |loc: ReadLocation, key: DuplicateGroupKey, seq: SequenceRecord| {
+    let callback = |loc: ReadLocation, id: RecordIdentifier, seq: SequenceRecord| {
         let pos = loc.pos();
 
         // should we report our current progress?
@@ -69,9 +69,9 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
         }
 
         let key = if !should_keep(&seq, &filters) {
-            DuplicateGroupKey::Filtered(pos)
+            DuplicateGroupKey::Filtered(id, pos)
         } else {
-            key
+            DuplicateGroupKey::Valid(id)
         };
 
         index.add_read(key, loc, seq);
@@ -113,7 +113,7 @@ fn iter_lines_with_regex<F>(
     mut callback: F,
 ) -> Result<()>
 where
-    F: FnMut(ReadLocation, DuplicateGroupKey, SequenceRecord) -> Result<()>,
+    F: FnMut(ReadLocation, RecordIdentifier, SequenceRecord) -> Result<()>,
 {
     // expected_len is used to ensure that every read has the same format
     let mut expected_len: Option<usize> = None;
@@ -132,7 +132,7 @@ where
         let header = std::str::from_utf8(rec.id())?;
 
         let (len, id) = extract_header_id(header, re, read_location.pos())?;
-        
+
         // check # of barcode groups is the same
         let expected_len = *expected_len.get_or_insert(len);
         if expected_len != len {
@@ -145,9 +145,7 @@ where
             })
         }
 
-        let barcode_location = DuplicateGroupKey::Normal(id);
-
-        callback(read_location, barcode_location, rec)?;
+        callback(read_location, id, rec)?;
     }
     Ok(())
 }
@@ -158,7 +156,7 @@ fn iter_lines_with_cluster_file<F>(
     mut callback: F,
 ) -> Result<()>
 where
-    F: FnMut(ReadLocation, DuplicateGroupKey, SequenceRecord) -> Result<()>,
+    F: FnMut(ReadLocation, RecordIdentifier, SequenceRecord) -> Result<()>,
 {
     // Read cluster file line by line
     info!("Reading identifiers from file {}", cluster_file.display());
@@ -205,16 +203,14 @@ where
 
         let header = std::str::from_utf8(rec.id())?;
 
-        let key = match cluster_map.get(header) {
-            Some(identifier) => DuplicateGroupKey::Normal(identifier.clone()),
-            None => {
-                bail!(IndexGenerationErr::RowNotInClusters {
-                    header: header.to_string()
-                });
-            }
+        let Some(id) = cluster_map.get(header) else {
+            bail!(IndexGenerationErr::RowNotInClusters {
+                header: header.to_string()
+            })
         };
+        let id = id.clone();
 
-        callback(read_location, key, rec)?;
+        callback(read_location, id, rec)?;
     }
 
     Ok(())

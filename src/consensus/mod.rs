@@ -209,12 +209,6 @@ fn consensus_call(
                 if will_cluster {
                     let alignment_result = graph.add_alignment_from_bytes(&align, &seq, &qual);
 
-                    // debug check for bugs in the alignment prediction algorithm
-                    // todo: fix this?
-                    // if let Some(alignment_prediction) = alignment_predictions.last() {
-                    //     assert_eq!(alignment_prediction, alignment_result)
-                    // }
-
                     // add each read in the duplicate group to the graph
                     inserted_cluster_id = cluster_id;
                     did_cluster = true;

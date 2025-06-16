@@ -52,19 +52,6 @@ impl Index {
     }
 }
 
-// TODO: remove when redundant
-// pub fn write_index(index: &Index) -> Result<()> {
-//     let index_path = index.metadata.file_path.index().clone();
-//     info!("Writing to {}...", index_path.display());
-
-//     let output = File::open(index_path)?;
-//     let buf_writer = BufWriter::new(output);
-//     let mut serializer = rkyv::ser::writer::IoWriter::new(buf_writer);
-
-//     to_bytes_in::<_, rancor::Error>(index, &mut serializer)?;
-//     Ok(())
-// }
-
 /// Represents the file paths for the input FASTQ file and the corresponding index file.
 #[derive(Clone, Default, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct FileIndexPath {

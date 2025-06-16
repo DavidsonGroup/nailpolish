@@ -83,7 +83,7 @@ pub trait SingleReadAccessor: Sized {
     fn _fetch(&mut self, pos: u64, buffer: &mut [u8]) -> Result<()>;
 
     fn fetch(&mut self, read: &ReadLocation, buffer: &mut [u8]) -> Result<()> {
-        self._fetch(read.pos() as u64, buffer)
+        self._fetch(read.pos(), buffer)
     }
 }
 
@@ -111,7 +111,7 @@ impl SingleReadAccessor for RandomAccessReader {
 
         debug!(
             "RandomAccessReader: read contents ({pos}, {num_bytes}):\n\n{}\n\n",
-            std::str::from_utf8(&buffer).unwrap()
+            std::str::from_utf8(buffer).unwrap()
         );
 
         Ok(())
@@ -155,7 +155,7 @@ impl SingleReadAccessor for SequentialReader {
 
         debug!(
             "SequentialReader: read contents ({pos}, {num_bytes}):\n\n{}\n\n",
-            std::str::from_utf8(&buffer).unwrap()
+            std::str::from_utf8(buffer).unwrap()
         );
 
         Ok(())

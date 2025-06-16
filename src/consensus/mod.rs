@@ -12,9 +12,28 @@ use std::io::{Cursor, Write as IoWrite};
 
 use rayon::prelude::*;
 use spoa::{AlignmentEngine, AlignmentType};
+use std::cell::RefCell;
 
 mod cluster;
 mod formatter;
+
+// CN: perf-optimization; thread-local AlignmentEngine to avoid creating new engine per consensus_call
+thread_local! {
+    static ALIGNMENT_ENGINE: RefCell<AlignmentEngine> = RefCell::new(
+        AlignmentEngine::new(AlignmentType::kOV, 5, -4, -8, -6, -10, -4)
+    );
+}
+
+/// Helper function to get access to the thread-local AlignmentEngine
+fn with_alignment_engine<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut AlignmentEngine) -> R,
+{
+    ALIGNMENT_ENGINE.with(|engine| {
+        let mut engine = engine.borrow_mut();
+        f(&mut *engine)
+    })
+}
 
 /// Generate consensus sequences from duplicate read groups
 pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
@@ -164,15 +183,12 @@ fn consensus_call(
             "@{}\n{}\n+\n{}",
             header,
             str::from_utf8(&seq)?,
-            str::from_utf8(&qual)?
+            str::from_utf8(qual)?
         )?;
 
         Ok((result, 1, false))
     } else {
         // consensus call
-
-        // initialise `spoa` machinery
-        let mut alignment_engine = AlignmentEngine::new(AlignmentType::kOV, 5, -4, -8, -6, -10, -4);
 
         let mut read_idx = 0usize;
 
@@ -192,7 +208,7 @@ fn consensus_call(
             let mut inserted_cluster_id = 0;
             for (cluster_id, graph) in graphs.iter_mut().enumerate() {
                 // Align to the graph
-                let align = alignment_engine.align_from_bytes(&seq, graph);
+                let align = with_alignment_engine(|engine| engine.align_from_bytes(&seq, graph));
 
                 let will_cluster = if first_read_in_group || args.no_clustering {
                     true
@@ -207,13 +223,7 @@ fn consensus_call(
                 };
 
                 if will_cluster {
-                    let alignment_result = graph.add_alignment_from_bytes(&align, &seq, &qual);
-
-                    // debug check for bugs in the alignment prediction algorithm
-                    // todo: fix this?
-                    // if let Some(alignment_prediction) = alignment_predictions.last() {
-                    //     assert_eq!(alignment_prediction, alignment_result)
-                    // }
+                    let alignment_result = graph.add_alignment_from_bytes(&align, &seq, qual);
 
                     // add each read in the duplicate group to the graph
                     inserted_cluster_id = cluster_id;
@@ -229,8 +239,9 @@ fn consensus_call(
             // do we need to add a new graph, because this read didn't cluster?
             if !did_cluster {
                 let mut new_graph = spoa::Graph::new();
-                let align = alignment_engine.align_from_bytes(&seq, &new_graph);
-                alignment_predictions.push(new_graph.add_alignment_from_bytes(&align, &seq, &qual));
+                let align =
+                    with_alignment_engine(|engine| engine.align_from_bytes(&seq, &new_graph));
+                alignment_predictions.push(new_graph.add_alignment_from_bytes(&align, &seq, qual));
 
                 debug!("Added new graph");
                 graphs.push(new_graph);
@@ -253,7 +264,7 @@ fn consensus_call(
                     "@{}\n{}\n+\n{}",
                     header,
                     str::from_utf8(&seq).unwrap(),
-                    str::from_utf8(&qual).unwrap()
+                    str::from_utf8(qual).unwrap()
                 )?;
             }
 

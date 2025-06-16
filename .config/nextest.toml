@@ -1,0 +1,4 @@
+# match all tests in the project
+[[profile.default.overrides]]
+filter = "test(/.*/)"
+threads-required = 4

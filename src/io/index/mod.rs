@@ -68,41 +68,32 @@ pub struct ArchivedDuplicateGroup<'a> {
 /// Represents the index of a duplicate group.
 ///
 /// - `Normal`: A group with a valid `RecordIdentifier`.
-/// - `Ignored` and `Filtered`: A group that is ignored, represented by a unique value. This can be
+/// - `Filtered`: A group that is filtered out, represented by a unique value. This can be
 ///   the read's byte position. It is important that this is guaranteed unique, as this prevents
 ///   collisions and overwrites from occurring.
 #[derive(Archive, Serialize, Hash, Eq, PartialEq)]
 pub enum DuplicateGroupKey {
-    Normal(RecordIdentifier),
-    Invalid(u64),
-    Filtered(u64),
+    Valid(RecordIdentifier),
+    Filtered(RecordIdentifier, u64),
 }
 
 impl DuplicateGroupKey {
-    pub(crate) fn is_invalid(&self) -> bool {
-        matches!(self, Self::Invalid(_))
-    }
-
     pub fn is_filtered(&self) -> bool {
-        matches!(self, Self::Filtered(_))
+        matches!(self, Self::Filtered(_, _))
     }
 
     pub fn is_normal(&self) -> bool {
-        matches!(self, Self::Normal(_))
+        matches!(self, Self::Valid(_))
     }
 }
 
 impl ArchivedDuplicateGroupKey {
-    pub(crate) fn is_invalid(&self) -> bool {
-        matches!(self, Self::Invalid(_))
-    }
-
     pub fn is_filtered(&self) -> bool {
-        matches!(self, Self::Filtered(_))
+        matches!(self, Self::Filtered(_, _))
     }
 
     pub fn is_normal(&self) -> bool {
-        matches!(self, Self::Normal(_))
+        matches!(self, Self::Valid(_))
     }
 }
 
@@ -146,7 +137,7 @@ impl Index {
 
     /// Retrieves a duplicate group by its record identifier.
     pub fn get_by_record_key(&self, id: RecordIdentifier) -> Option<DuplicateGroup> {
-        self.get_by_key(&DuplicateGroupKey::Normal(id))
+        self.get_by_key(&DuplicateGroupKey::Valid(id))
     }
 
     /// Adds a read to the index under the specified duplicate group key.

@@ -65,6 +65,9 @@ pub enum Commands {
 
     #[command(arg_required_else_help = true)]
     Extract(ExtractArgs),
+
+    /// Display version information, build details, and project URLs
+    Version,
 }
 
 #[derive(Debug, Args)]

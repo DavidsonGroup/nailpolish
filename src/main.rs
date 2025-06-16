@@ -17,7 +17,7 @@ mod io;
 mod summary;
 mod utils;
 
-use cli::{get_version_label, Cli, Commands};
+use cli::{get_about_label, get_version_label, Cli, Commands};
 use itertools::Itertools;
 
 /// Report resource usage statistics
@@ -83,6 +83,18 @@ fn try_main() -> Result<()> {
         }
         Commands::Consensus(args) => consensus::consensus(args).map(|_| report_rstats(start)),
         Commands::Extract(args) => extract::extract(args),
+        Commands::Version => {
+            use spoa::{AlignmentEngine, AlignmentType};
+            println!("{}", get_about_label());
+
+            let mut alignment_engine =
+                AlignmentEngine::new(AlignmentType::kOV, 5, -4, -8, -6, -10, -4);
+            let engine_type = alignment_engine.alignment_engine_type();
+
+            println!("Alignment engine type: {engine_type}");
+
+            Ok(())
+        }
     }
 }
 

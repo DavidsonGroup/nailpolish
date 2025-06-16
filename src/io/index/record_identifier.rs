@@ -2,7 +2,7 @@ use rkyv::{Archive, Deserialize, Serialize};
 use std::fmt;
 
 /// A RecordIdentifier is a store of the BC/UMI identifier of a read.
-#[derive(Archive, Serialize, Deserialize, Hash, Eq, PartialEq)]
+#[derive(Archive, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
 pub struct RecordIdentifier(pub String);
 
 impl RecordIdentifier {

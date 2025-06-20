@@ -28,6 +28,7 @@ rkyv = { version = "0.8.10", features = [
   "std",
   "indexmap-2",
   "smallvec-1",
+  "pointer_width_64",
 ] }
 smallvec = "1.15.0"
 memmap = "0.7.0"

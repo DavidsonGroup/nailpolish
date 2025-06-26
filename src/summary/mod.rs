@@ -1,11 +1,18 @@
+// Copyright 2025 Oliver Cheng <cheng.o@wehi.edu.au> and the Davidson Lab.
+// This program is distributed under the MIT License.
+// We also ask that you cite this software in publications
+// where you made use of it for any part of the data analysis.
+
 //! Provides functionality for generating HTML summaries of index files.
 //! Uses a template-based approach with handlebars for rendering.
 
-use anyhow::Result;
-use count::summarize_index;
 use std::io::Write;
 
+use anyhow::Result;
+
 use crate::io::index::IndexReader;
+
+use count::summarize_index;
 
 // Internal module for counting statistics
 mod count;

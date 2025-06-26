@@ -1,10 +1,16 @@
+// Copyright 2025 Oliver Cheng <cheng.o@wehi.edu.au> and the Davidson Lab.
+// This program is distributed under the MIT License.
+// We also ask that you cite this software in publications
+// where you made use of it for any part of the data analysis.
+
 pub mod record;
 pub mod uncompressed;
 
-use crate::io::index::{DuplicateGroup, DuplicateGroupLocation, DuplicateGroupType, ReadLocation};
-pub use record::QualityCompute;
-
 use anyhow::Result;
+
+use crate::io::index::{DuplicateGroupLocation, ReadLocation};
+
+pub use record::QualityCompute;
 
 pub trait GroupedReadsAccessor {
     fn new(file: &std::path::Path) -> Result<Self>

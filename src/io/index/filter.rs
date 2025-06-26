@@ -1,9 +1,13 @@
+// Copyright 2025 Oliver Cheng <cheng.o@wehi.edu.au> and the Davidson Lab.
+// This program is distributed under the MIT License.
+// We also ask that you cite this software in publications
+// where you made use of it for any part of the data analysis.
+
 /// Read filtering based on length and quality criteria
 use crate::{
     cli::interval::ArgInterval,
     io::index::{DuplicateGroup, DuplicateGroupLocation, DuplicateGroupType, ReadLocation},
 };
-use smallvec::{smallvec, SmallVec};
 
 /// Options for filtering reads based on length and quality
 pub struct FilterOpts {

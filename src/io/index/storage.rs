@@ -1,18 +1,25 @@
+// Copyright 2025 Oliver Cheng <cheng.o@wehi.edu.au> and the Davidson Lab.
+// This program is distributed under the MIT License.
+// We also ask that you cite this software in publications
+// where you made use of it for any part of the data analysis.
+
 //! `io::index::storage`
 //!
 //! This module is responsible for storing the index object on the filesystem.
 //! It provides functionality to serialize, deserialize, and manage index data
 //! for efficient storage and retrieval.
 
-use crate::io::index::{ArchivedIndex, Index};
+use std::{
+    fs::File,
+    io::BufWriter,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
-use std::fs::File;
-use std::io::BufWriter;
-use std::path::{Path, PathBuf};
-
 use memmap::Mmap;
 use rkyv::{api::high::to_bytes_in, rancor};
+
+use crate::io::index::{ArchivedIndex, Index};
 
 pub struct IndexReader {
     mmap: Mmap,

@@ -1,3 +1,8 @@
+// Copyright 2025 Oliver Cheng <cheng.o@wehi.edu.au> and the Davidson Lab.
+// This program is distributed under the MIT License.
+// We also ask that you cite this software in publications
+// where you made use of it for any part of the data analysis.
+
 // disable unused code warnings for dev builds
 // #![cfg_attr(debug_assertions, allow(dead_code, unused_imports,
 // unused_variables))]
@@ -8,6 +13,7 @@ extern crate log;
 
 use anyhow::Result;
 use clap::Parser;
+use itertools::Itertools;
 
 mod cli;
 mod consensus;
@@ -18,7 +24,6 @@ mod summary;
 mod utils;
 
 use cli::{get_about_label, get_version_label, Cli, Commands};
-use itertools::Itertools;
 
 /// Report resource usage statistics
 #[cfg(unix)]

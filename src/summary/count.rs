@@ -1,3 +1,8 @@
+// Copyright 2025 Oliver Cheng <cheng.o@wehi.edu.au> and the Davidson Lab.
+// This program is distributed under the MIT License.
+// We also ask that you cite this software in publications
+// where you made use of it for any part of the data analysis.
+
 use std::collections::BTreeMap;
 
 use crate::{
@@ -25,11 +30,11 @@ impl RowData {
         self.count += 1;
 
         let len = utils::complete_avg(group.reads.iter().map(|v| {
-            let res: u32 = v.seq_len.into();
+            let res: u32 = v.seq_len;
             res as f32
         }));
 
-        let qual = utils::complete_avg(group.reads.iter().map(|v| v.qual.into()));
+        let qual = utils::complete_avg(group.reads.iter().map(|v| v.qual));
 
         self.avg_len = utils::running_avg(self.avg_len, len, self.count);
         self.avg_qual = utils::running_avg(self.avg_qual, qual, self.count);

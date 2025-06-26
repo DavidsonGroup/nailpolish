@@ -1,18 +1,24 @@
+// Copyright 2025 Oliver Cheng <cheng.o@wehi.edu.au> and the Davidson Lab.
+// This program is distributed under the MIT License.
+// We also ask that you cite this software in publications
+// where you made use of it for any part of the data analysis.
+
 /// Index construction and read identifier parsing
-use super::storage::FileIndexPath;
-use super::{Index, ReadLocation, RecordIdentifier};
-use crate::io::reads::QualityCompute;
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{BufRead, BufReader, Seek},
+    path::Path,
+};
 
 use anyhow::{bail, Result};
 use humansize::{format_size, FormatSizeOptions};
-use needletail::parser::SequenceRecord;
-use needletail::FastxReader;
+use needletail::{parser::SequenceRecord, FastxReader};
 use regex::Regex;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Seek};
-use std::path::Path;
 use thiserror::Error;
+
+use super::{storage::FileIndexPath, Index, ReadLocation, RecordIdentifier};
+use crate::io::reads::QualityCompute;
 
 /// Constructs an index file for a FASTQ file, extracting barcodes and UMIs
 /// from read headers using either a regex pattern or a cluster file

@@ -1,26 +1,30 @@
+// Copyright 2025 Oliver Cheng <cheng.o@wehi.edu.au> and the Davidson Lab.
+// This program is distributed under the MIT License.
+// We also ask that you cite this software in publications
+// where you made use of it for any part of the data analysis.
+
 pub mod construct;
 pub mod filter;
 pub mod metadata;
 pub mod record_identifier;
 pub mod storage;
 
-use metadata::IndexMetadata;
-
-pub use crate::io::index::storage::{FileIndexPath, IndexReader};
-use crate::io::reads::GroupedReadsAccessor;
-use crate::io::{
-    index::record_identifier::ArchivedRecordIdentifier, reads::uncompressed::UncompressedFileReader,
-};
-use crate::utils::deserialize_standard;
-pub use record_identifier::RecordIdentifier;
-
-use anyhow::{Context, Result};
 use std::time::SystemTimeError;
 
+use anyhow::{Context, Result};
 use indexmap::IndexMap;
 use needletail::parser::SequenceRecord;
 use rkyv::{vec::ArchivedVec, Archive, Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
+
+use crate::io::index::record_identifier::ArchivedRecordIdentifier;
+use crate::io::reads::uncompressed::UncompressedFileReader;
+use crate::io::reads::GroupedReadsAccessor;
+use crate::utils::deserialize_standard;
+
+use metadata::IndexMetadata;
+pub use record_identifier::RecordIdentifier;
+pub use storage::{FileIndexPath, IndexReader};
 
 // An individual indexed read, with its byte length in file
 // and read status
@@ -35,11 +39,11 @@ pub struct ReadLocation {
 
 impl ReadLocation {
     pub fn pos(&self) -> u64 {
-        u64::try_from(self._pos).unwrap()
+        self._pos
     }
 
     pub fn byte_len(&self) -> u32 {
-        u32::try_from(self._byte_len).unwrap()
+        self._byte_len
     }
 }
 

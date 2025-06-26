@@ -1,11 +1,16 @@
+// Copyright 2025 Oliver Cheng <cheng.o@wehi.edu.au> and the Davidson Lab.
+// This program is distributed under the MIT License.
+// We also ask that you cite this software in publications
+// where you made use of it for any part of the data analysis.
+
+use std::{fmt::Write as StrWrite, str, time::Instant};
+
 use needletail::parser::SequenceRecord;
 
-use crate::cli::ConsensusArgs;
-use crate::io::index::{DuplicateGroupType, DuplicateGroup};
-use std::fmt::Write as StrWrite;
-use std::time::Instant;
-
-use std::str;
+use crate::{
+    cli::ConsensusArgs,
+    io::index::{DuplicateGroup, DuplicateGroupType},
+};
 
 /// A struct to format the header of a consensus sequence
 pub struct HeaderFormatter<'a> {

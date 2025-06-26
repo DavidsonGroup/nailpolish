@@ -28,4 +28,5 @@ impl PresetBarcodeFormats {
 pub enum PresetOutputFormats {
     Fastq,
     Fasta,
+    Metadata,
 }

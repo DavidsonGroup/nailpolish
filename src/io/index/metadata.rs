@@ -31,14 +31,10 @@ pub struct IndexMetadata {
 
 impl IndexMetadata {
     /// Updates statistics for a single read, including counts and running averages
-    pub fn add_read_metadata(
-        &mut self,
-        key: &super::DuplicateGroupKey,
-        rec: needletail::parser::SequenceRecord,
-    ) {
+    pub fn add_read_metadata(&mut self, rec: needletail::parser::SequenceRecord) {
         // update metadata
-        self.filtered_reads += key.is_filtered() as usize;
-        self.normal_reads += key.is_normal() as usize;
+        // self.filtered_reads += key.is_filtered() as usize;
+        // self.normal_reads += key.is_normal() as usize;
         self.total_reads += 1;
 
         self.avg_qual = utils::running_avg(

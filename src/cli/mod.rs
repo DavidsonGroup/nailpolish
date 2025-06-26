@@ -100,28 +100,6 @@ pub struct IndexArgs {
     /// - if a barcode regex or preset is used (default), any reads which do not match the regex
     #[arg(long, verbatim_doc_comment)]
     pub skip_unmatched: bool,
-
-    /// filter lengths to a value within the given float interval [a,b].
-    /// a is the minimum, and b is the maximum (both inclusive).
-    /// alternatively, a can be `-inf` and b can be `inf.
-    /// an unbounded interval (i.e. no length filter) is given by `0,inf`.
-    #[arg(
-            long,
-            value_parser = |x: &str| ArgInterval::try_from(x),
-            default_value = "0,15000",
-            verbatim_doc_comment
-        )]
-    pub len: ArgInterval,
-
-    /// filter average read quality to a value within the given float interval [a,b].
-    /// see the docs for `--len` for documentation on how to use the interval.
-    #[arg(
-            long,
-            value_parser = |x: &str| ArgInterval::try_from(x),
-            default_value = "0,inf",
-            verbatim_doc_comment
-        )]
-    pub qual: ArgInterval,
 }
 
 #[derive(Debug, Args)]
@@ -166,6 +144,34 @@ pub struct ConsensusArgs {
     /// this will prevent nailpolish from detecting and separating false duplicates
     #[arg(long, action)]
     pub no_clustering: bool,
+
+    /// filter lengths to a value within the given float interval [a,b].
+    /// a is the minimum, and b is the maximum (both inclusive).
+    /// alternatively, a can be `-inf` and b can be `inf.
+    /// an unbounded interval (i.e. no length filter) is given by `0,inf`.
+    #[arg(
+            long,
+            value_parser = |x: &str| ArgInterval::try_from(x),
+            default_value = "0,15000",
+            verbatim_doc_comment
+        )]
+    pub len: ArgInterval,
+
+    /// filter average read quality to a value within the given float interval [a,b].
+    /// see the docs for `--len` for documentation on how to use the interval.
+    #[arg(
+            long,
+            value_parser = |x: &str| ArgInterval::try_from(x),
+            default_value = "0,inf",
+            verbatim_doc_comment
+        )]
+    pub qual: ArgInterval,
+
+    /// filter out groups larger than this size (skip consensus calling for very large groups)
+    /// this will prevent large groups, which are typically false duplicates, from having an outsized impact
+    /// on runtime.
+    #[arg(long, default_value_t = 250)]
+    pub max_group_size: usize,
 }
 
 /// Extract reads beloning to specific group queries a .fastq file, unmodified.

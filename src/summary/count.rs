@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    io::index::{ArchivedDuplicateGroup, ArchivedIndex},
+    io::index::{ArchivedIndex, DuplicateGroupLocation},
     utils,
 };
 
@@ -21,7 +21,7 @@ impl RowData {
         }
     }
 
-    pub fn add_group(&mut self, group: &ArchivedDuplicateGroup) {
+    pub fn add_group(&mut self, group: &DuplicateGroupLocation) {
         self.count += 1;
 
         let len = utils::complete_avg(group.reads.iter().map(|v| {

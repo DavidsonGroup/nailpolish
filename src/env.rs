@@ -9,7 +9,7 @@ lazy_static::lazy_static! {
     pub static ref WRITE_BUF_CAPACITY: usize = get_env_usize(
         "NP_WRITE_BUF_CAPACITY",
         128 * 1024,
-        "read buffer capacity"
+        "write buffer capacity"
     );
 }
 

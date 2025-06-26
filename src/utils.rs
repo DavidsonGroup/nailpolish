@@ -37,3 +37,9 @@ pub(crate) fn get_writer(path: Option<&Path>) -> Result<Box<dyn std::io::Write>>
 
     Ok(writer)
 }
+
+pub(crate) fn deserialize_standard<T>(
+    archived_val: &impl rkyv::Deserialize<T, rkyv::api::high::HighDeserializer<rkyv::rancor::Error>>,
+) -> T {
+    rkyv::deserialize::<T, rkyv::rancor::Error>(archived_val).unwrap()
+}

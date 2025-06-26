@@ -1,7 +1,6 @@
 /// Index construction and read identifier parsing
-use super::filter::should_keep;
 use super::storage::FileIndexPath;
-use super::{DuplicateGroupKey, Index, ReadLocation, ReadLocationTrait, RecordIdentifier};
+use super::{Index, ReadLocation, RecordIdentifier};
 use crate::io::reads::QualityCompute;
 
 use anyhow::{bail, Result};
@@ -42,8 +41,6 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
 
     let mut index = Index::new(path);
 
-    let filters = super::filter::FilterOpts::new(cli);
-
     let size_formatter = FormatSizeOptions::from(humansize::BINARY)
         .decimal_places(1)
         .decimal_zeroes(1)
@@ -54,7 +51,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
     let mut last_report = 0;
 
     // callback function to process each read that comes in & add to the index
-    let callback = |loc: ReadLocation, id: RecordIdentifier, seq: SequenceRecord| {
+    let callback = |loc: ReadLocation, key: RecordIdentifier, seq: SequenceRecord| {
         let pos = loc.pos();
 
         // should we report our current progress?
@@ -67,12 +64,6 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
                 format_size(total_bytes, size_formatter)
             );
         }
-
-        let key = if !should_keep(&seq, &filters) {
-            DuplicateGroupKey::Filtered(id, pos)
-        } else {
-            DuplicateGroupKey::Valid(id)
-        };
 
         index.add_read(key, loc, seq);
         Ok(())

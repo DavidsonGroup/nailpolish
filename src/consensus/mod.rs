@@ -1,6 +1,9 @@
 /// Consensus calling implementation for duplicate read groups
 use crate::cli::ConsensusArgs;
-use crate::io::index::{ArchivedDuplicateGroup, FileIndexPath, IndexReader};
+use crate::io::index::filter::{filter_group_locations, FilterOpts};
+use crate::io::index::{
+    DuplicateGroup, DuplicateGroupLocation, DuplicateGroupType, FileIndexPath, IndexReader,
+};
 
 use anyhow::{Context as _, Result};
 use core::str;
@@ -36,16 +39,16 @@ where
 }
 
 /// Generate consensus sequences from duplicate read groups
-pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
-    let paths = FileIndexPath::new(&args.input);
+pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
+    let paths = FileIndexPath::new(&cli.input);
     let index_rdr = IndexReader::new(&paths)?;
 
-    let is_multithreaded = args.threads != 1;
+    let is_multithreaded = cli.threads != 1;
 
     info!(
         "Consensus calling {} → {}",
         paths.fastq().display(),
-        args.output
+        cli.output
             .as_ref()
             .map_or("stdout".to_string(), |v| v.display().to_string())
     );
@@ -56,7 +59,7 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
 
     // allocate a thread pool
     if is_multithreaded {
-        info!("Using thread pool with {} threads", args.threads,)
+        info!("Using thread pool with {} threads", cli.threads,)
     } else {
         info!("Using single thread")
     }
@@ -64,14 +67,14 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
     if is_multithreaded {
         // set the number of threads that Rayon will use
         rayon::ThreadPoolBuilder::new()
-            .num_threads(args.threads)
+            .num_threads(cli.threads)
             .build_global()?;
     }
 
     let mut accessor = index.get_read_accessor(&paths)?;
-    let buffer_size: usize = 100usize * args.threads;
+    let buffer_size: usize = 100usize * cli.threads;
 
-    let mut writer = crate::utils::get_writer(args.output.as_deref())?;
+    let mut writer = crate::utils::get_writer(cli.output.as_deref())?;
 
     let mut processed_reads = 0;
     let mut processed_clusters = 0;
@@ -88,17 +91,23 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
         info!("proc: {processed_reads} / {total_num_reads} groups\t(clusters per duplicate group: avg {cluster_ratio:.2}, max {max_clusters})");
     };
 
-    const REPORT_INTERVAL: usize = 100000; // number of reads to process before reporting progress
+    const REPORT_INTERVAL: usize = 10000; // number of reads to process before reporting progress
 
-    for chunk in &index.groups().chunks(buffer_size) {
+    // CN: group-size-filter; large groups will be split into individual reads via flat_map
+    let groups_iter = index.groups();
+
+    for chunk in &groups_iter.chunks(buffer_size) {
         // perform the read operations
         let input = chunk
             .into_iter()
-            .map(|group| -> Result<_> {
-                let reads = accessor.fetch_reads_archived(group.reads.as_slice())?;
-                debug!("length: {}", reads.len());
-                Ok((group, reads))
+            .map(|group_loc| -> Result<Vec<_>> {
+                let opts = FilterOpts::new(&cli);
+                let reads = accessor.fetch_group(&group_loc)?;
+                let groups = filter_group_locations(&group_loc, reads, &opts);
+
+                Ok(groups)
             })
+            .flatten_ok()
             .collect::<Result<Vec<_>>>()?;
 
         // perform the consensus call
@@ -106,13 +115,13 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
             // parallel: use rayon thread pool
             input
                 .par_iter()
-                .map(|(g, v)| consensus_call(g, v, args))
+                .map(|group| consensus_call(group, cli))
                 .collect::<Result<Vec<_>>>()?
         } else {
             // otherwise, just use a single iterator
             input
                 .iter()
-                .map(|(g, v)| consensus_call(g, v, args))
+                .map(|group| consensus_call(group, cli))
                 .collect::<Result<Vec<_>>>()?
         };
 
@@ -136,6 +145,9 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
             }
 
             write!(writer, "{}", elem)?;
+
+            writer.flush()?;
+            log::logger().flush();
         }
     }
 
@@ -153,14 +165,14 @@ pub fn consensus(args: &crate::cli::ConsensusArgs) -> Result<()> {
 }
 
 /// Generates a consensus sequence for a group of reads, or returns the single read if no duplicates exist
-fn consensus_call(
-    group: &ArchivedDuplicateGroup,
-    reads_u8: &Vec<u8>,
-    args: &ConsensusArgs,
-) -> Result<(String, usize, bool)> {
-    let mut header_builder = formatter::HeaderFormatter::new(group, args);
+/// For large groups (> max_group_size), outputs individual reads as filtered reads
+fn consensus_call(group: &DuplicateGroup, args: &ConsensusArgs) -> Result<(String, usize, bool)> {
     let read_count = group.reads.len();
 
+    let reads_u8 = group.reads.concat();
+
+    // Normal processing for small groups
+    let mut header_builder = formatter::HeaderFormatter::new(group, args);
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
     let mut result = String::new();
 
@@ -199,6 +211,7 @@ fn consensus_call(
             let read = read.context("Invalid read")?;
 
             let seq = read.seq();
+
             let qual = read.qual().context("No quality")?;
 
             // let mut alignment_result = None;

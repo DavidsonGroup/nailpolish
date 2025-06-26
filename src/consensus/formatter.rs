@@ -1,7 +1,7 @@
 use needletail::parser::SequenceRecord;
 
-use crate::io::index::ArchivedDuplicateGroupKey;
-use crate::{cli::ConsensusArgs, io::index::ArchivedDuplicateGroup};
+use crate::cli::ConsensusArgs;
+use crate::io::index::{DuplicateGroupType, DuplicateGroup};
 use std::fmt::Write as StrWrite;
 use std::time::Instant;
 
@@ -18,25 +18,21 @@ pub struct HeaderFormatter<'a> {
 }
 
 impl<'a> HeaderFormatter<'a> {
-    pub fn new(group: &'a ArchivedDuplicateGroup, args: &'a ConsensusArgs) -> Self {
+    pub fn new(group: &'a DuplicateGroup, args: &'a ConsensusArgs) -> Self {
         let group_size = group.reads.len();
         let id = group.id;
-
-        let key = match group.key {
-            ArchivedDuplicateGroupKey::Valid(id) => id.to_string(),
-            ArchivedDuplicateGroupKey::Filtered(id, _) => id.to_string(),
-        };
+        let key = group.key.to_string();
 
         let start_time = Instant::now();
-        let consensus_type = match group.key {
-            ArchivedDuplicateGroupKey::Valid(_) => {
+        let consensus_type = match group.group_type {
+            DuplicateGroupType::Valid => {
                 if group_size == 1 {
                     "single".to_string()
                 } else {
                     "consensus".to_string()
                 }
             }
-            ArchivedDuplicateGroupKey::Filtered(_, _) => "filtered".to_string(),
+            DuplicateGroupType::Filtered => "filtered".to_string(),
         };
 
         // placeholder

@@ -3,7 +3,7 @@ use std::io::Write;
 
 use crate::{
     cli::preset::PresetOutputFormats,
-    io::index::{ArchivedDuplicateGroupKey, FileIndexPath, IndexReader},
+    io::index::{FileIndexPath, IndexReader},
 };
 
 use anyhow::{Context, Result};
@@ -40,12 +40,9 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
         index
             .groups()
             .filter_map(|group| {
-                if let ArchivedDuplicateGroupKey::Valid(k) = group.key {
-                    if re.is_match(&k.0) {
-                        return Some(group.id);
-                    }
+                if re.is_match(&group.key.0) {
+                    return Some(group.id);
                 }
-
                 None
             })
             .collect()
@@ -72,17 +69,18 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
 
     let mut writer = crate::utils::get_writer(args.output.as_deref())?;
 
+    println!("Test");
     if args.format == PresetOutputFormats::Fastq {
         for group in allowed_groups {
             let group = group.context("Group does not exist")?;
-            let reads = accessor.fetch_reads_archived(group.reads)?;
+            let reads_u8 = accessor.fetch_reads(&group.reads)?.concat();
 
-            writer.write_all(&reads)?;
+            writer.write_all(&reads_u8)?;
         }
-    } else {
+    } else if args.format == PresetOutputFormats::Fasta {
         for group in allowed_groups {
             let group = group.context("Group does not exist")?;
-            let reads_u8 = accessor.fetch_reads_archived(group.reads)?;
+            let reads_u8 = accessor.fetch_reads(&group.reads)?.concat();
 
             let mut reader = FastqReader::new(Cursor::new(reads_u8));
             while let Some(read) = reader.next() {
@@ -91,6 +89,11 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
                 writeln!(writer, ">{}", String::from_utf8_lossy(read.id()))?;
                 writeln!(writer, "{}", String::from_utf8_lossy(&read.seq()))?;
             }
+        }
+    } else if args.format == PresetOutputFormats::Metadata {
+        for group in allowed_groups {
+            let group = group.unwrap();
+            writeln!(writer, "id: {}, key: {:?}", group.id, group.key)?;
         }
     }
 

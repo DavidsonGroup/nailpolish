@@ -7,8 +7,11 @@ pub mod storage;
 use metadata::IndexMetadata;
 
 pub use crate::io::index::storage::{FileIndexPath, IndexReader};
-use crate::io::reads::uncompressed::UncompressedFileReader;
 use crate::io::reads::GroupedReadsAccessor;
+use crate::io::{
+    index::record_identifier::ArchivedRecordIdentifier, reads::uncompressed::UncompressedFileReader,
+};
+use crate::utils::deserialize_standard;
 pub use record_identifier::RecordIdentifier;
 
 use anyhow::{Context, Result};
@@ -16,12 +19,13 @@ use std::time::SystemTimeError;
 
 use indexmap::IndexMap;
 use needletail::parser::SequenceRecord;
-use rkyv::{rancor, vec::ArchivedVec, Archive, Deserialize, Serialize};
+use rkyv::{vec::ArchivedVec, Archive, Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
 
 // An individual indexed read, with its byte length in file
 // and read status
 #[derive(Archive, Serialize, Deserialize, Clone, Debug)]
+#[rkyv(derive(Debug))]
 pub struct ReadLocation {
     pub _pos: u64,
     pub _byte_len: u32,
@@ -29,79 +33,40 @@ pub struct ReadLocation {
     pub qual: f32,
 }
 
-pub trait ReadLocationTrait {
-    fn pos(&self) -> u64;
-    fn byte_len(&self) -> u32;
-}
+impl ReadLocation {
+    pub fn pos(&self) -> u64 {
+        u64::try_from(self._pos).unwrap()
+    }
 
-macro_rules! impl_read_loc_trait {
-    ($($tys:ty), *) => {
-        $(
-            impl ReadLocationTrait for $tys {
-                fn pos(&self) -> u64 {
-                    u64::try_from(self._pos).unwrap()
-                }
-
-                fn byte_len(&self) -> u32 {
-                    u32::try_from(self._byte_len).unwrap()
-                }
-            }
-        )*
+    pub fn byte_len(&self) -> u32 {
+        u32::try_from(self._byte_len).unwrap()
     }
 }
 
-impl_read_loc_trait!(ReadLocation, ArchivedReadLocation);
-
 /// Generated on demand when iterating through the index.
-pub struct DuplicateGroup<'a> {
-    pub key: &'a DuplicateGroupKey,
-    pub reads: &'a SmallVec<[ReadLocation; 1]>,
-    pub index: usize,
-}
-
-pub struct ArchivedDuplicateGroup<'a> {
-    pub key: &'a ArchivedDuplicateGroupKey,
-    pub reads: &'a ArchivedVec<ArchivedReadLocation>,
+pub struct DuplicateGroupLocation {
+    pub key: RecordIdentifier,
+    pub reads: SmallVec<[ReadLocation; 1]>,
     pub id: usize,
 }
 
-/// Represents the index of a duplicate group.
-///
-/// - `Normal`: A group with a valid `RecordIdentifier`.
-/// - `Filtered`: A group that is filtered out, represented by a unique value. This can be
-///   the read's byte position. It is important that this is guaranteed unique, as this prevents
-///   collisions and overwrites from occurring.
-#[derive(Archive, Serialize, Hash, Eq, PartialEq)]
-pub enum DuplicateGroupKey {
-    Valid(RecordIdentifier),
-    Filtered(RecordIdentifier, u64),
+pub struct DuplicateGroup {
+    pub key: RecordIdentifier,
+    pub reads: Vec<Vec<u8>>,
+    pub id: usize,
+    pub group_type: DuplicateGroupType,
 }
 
-impl DuplicateGroupKey {
-    pub fn is_filtered(&self) -> bool {
-        matches!(self, Self::Filtered(_, _))
-    }
-
-    pub fn is_normal(&self) -> bool {
-        matches!(self, Self::Valid(_))
-    }
-}
-
-impl ArchivedDuplicateGroupKey {
-    pub fn is_filtered(&self) -> bool {
-        matches!(self, Self::Filtered(_, _))
-    }
-
-    pub fn is_normal(&self) -> bool {
-        matches!(self, Self::Valid(_))
-    }
+pub enum DuplicateGroupType {
+    Valid,
+    Filtered,
 }
 
 /// Represents an index structure for managing duplicate groups and their associated metadata.
 #[derive(Archive, Deserialize, Serialize)]
 pub struct Index {
     /// A map of duplicate group keys to their associated read locations.
-    groups: IndexMap<DuplicateGroupKey, SmallVec<[ReadLocation; 1]>>,
+    groups: IndexMap<RecordIdentifier, SmallVec<[ReadLocation; 1]>>,
 
     /// Metadata associated with the index.
     metadata: IndexMetadata,
@@ -129,20 +94,24 @@ impl Index {
     }
 
     /// Retrieves a duplicate group by its ID.
-    pub fn get_by_id(&self, index: usize) -> Option<DuplicateGroup> {
+    pub fn get_by_id(&self, index: usize) -> Option<DuplicateGroupLocation> {
         self.groups
             .get_index(index)
-            .map(|(key, reads)| DuplicateGroup { key, reads, index })
+            .map(|(key, reads)| DuplicateGroupLocation {
+                key: key.clone(),
+                reads: reads.clone(),
+                id: index,
+            })
     }
 
     /// Retrieves a duplicate group by its record identifier.
-    pub fn get_by_record_key(&self, id: RecordIdentifier) -> Option<DuplicateGroup> {
-        self.get_by_key(&DuplicateGroupKey::Valid(id))
+    pub fn get_by_record_key(&self, key: RecordIdentifier) -> Option<DuplicateGroupLocation> {
+        self.get_by_key(&key)
     }
 
-    /// Adds a read to the index under the specified duplicate group key.
-    pub fn add_read(&mut self, key: DuplicateGroupKey, read: ReadLocation, seq: SequenceRecord) {
-        self.metadata.add_read_metadata(&key, seq);
+    /// Adds a read to the index under the specified record identifier
+    pub fn add_read(&mut self, key: RecordIdentifier, read: ReadLocation, seq: SequenceRecord) {
+        self.metadata.add_read_metadata(seq);
         self.add_read_entry(key, read)
     }
 
@@ -159,14 +128,18 @@ impl Index {
     }
 
     /// Retrieves a duplicate group by its key.
-    fn get_by_key(&self, key: &DuplicateGroupKey) -> Option<DuplicateGroup> {
+    fn get_by_key(&self, key: &RecordIdentifier) -> Option<DuplicateGroupLocation> {
         self.groups
             .get_full(key)
-            .map(|(index, key, reads)| DuplicateGroup { key, reads, index })
+            .map(|(index, key, reads)| DuplicateGroupLocation {
+                key: key.clone(),
+                reads: reads.clone(),
+                id: index,
+            })
     }
 
     /// Adds a read entry to the index under the specified duplicate group key.
-    fn add_read_entry(&mut self, key: DuplicateGroupKey, read: ReadLocation) {
+    fn add_read_entry(&mut self, key: RecordIdentifier, read: ReadLocation) {
         self.groups
             .entry(key)
             .and_modify(|e| e.push(read.clone()))
@@ -176,13 +149,13 @@ impl Index {
 
 impl ArchivedIndex {
     /// Returns an iterator over the duplicate groups in the index.
-    pub fn groups(&self) -> impl Iterator<Item = ArchivedDuplicateGroup> {
+    pub fn groups(&self) -> impl Iterator<Item = DuplicateGroupLocation> + use<'_> {
         self.groups
             .iter()
             .enumerate()
-            .map(|(index, (key, value))| ArchivedDuplicateGroup {
-                key,
-                reads: value,
+            .map(|(index, (key, value))| DuplicateGroupLocation {
+                key: deserialize_standard(key),
+                reads: deserialize_standard(value),
                 id: index,
             })
     }
@@ -190,7 +163,7 @@ impl ArchivedIndex {
     pub fn get_hashmap(
         &self,
     ) -> &rkyv::collections::swiss_table::ArchivedIndexMap<
-        ArchivedDuplicateGroupKey,
+        ArchivedRecordIdentifier,
         ArchivedVec<ArchivedReadLocation>,
     > {
         &self.groups
@@ -214,15 +187,18 @@ impl ArchivedIndex {
     }
 
     /// Retrieves a duplicate group by its ID.
-    pub fn get_by_id(&self, id: usize) -> Option<ArchivedDuplicateGroup> {
+    pub fn get_by_id(&self, index: usize) -> Option<DuplicateGroupLocation> {
         self.groups
-            .get_index(id)
-            .map(|(key, reads)| ArchivedDuplicateGroup { key, reads, id })
+            .get_index(index)
+            .map(|(key, reads)| DuplicateGroupLocation {
+                key: deserialize_standard(key),
+                reads: deserialize_standard(reads),
+                id: index,
+            })
     }
 
     /// Provides access to the metadata of the index.
     pub fn metadata(&self) -> IndexMetadata {
-        rkyv::deserialize::<IndexMetadata, rancor::Error>(&self.metadata)
-            .expect("Failed to deserialize metadata")
+        deserialize_standard(&self.metadata)
     }
 }

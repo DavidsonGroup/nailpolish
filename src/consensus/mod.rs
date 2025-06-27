@@ -83,18 +83,20 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     let mut processed_clusters = 0;
     let mut processed_duplicate_groups = 0;
     let mut max_clusters = 0;
+    let mut filtered_reads = 0;
 
     let report_progress = |processed_reads: usize,
                            total_num_reads: usize,
                            processed_groups: usize,
                            processed_clusters: usize,
+                           filtered_reads: usize,
                            max_clusters: usize| {
         let cluster_ratio = processed_clusters as f64 / processed_groups as f64;
 
         if cli.no_clustering {
-            info!("proc: {processed_reads} / {total_num_reads} reads");
+            info!("proc: {processed_reads} / {total_num_reads} reads (filtered: {filtered_reads})");
         } else {
-            info!("proc: {processed_reads} / {total_num_reads} reads\t(clusters per duplicate group: avg {cluster_ratio:.2}, max {max_clusters})");
+            info!("proc: {processed_reads} / {total_num_reads} reads\t(clusters per duplicate group: avg {cluster_ratio:.2}, max {max_clusters}; filtered: {filtered_reads})");
         }
     };
 
@@ -132,8 +134,10 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
                 .collect::<Result<Vec<_>>>()?
         };
 
-        for (elem, num_reads, clusters, is_duplicate) in output.into_iter() {
+        for (elem, num_reads, clusters, num_filtered_reads, is_duplicate) in output.into_iter() {
             processed_reads += num_reads;
+            filtered_reads += num_filtered_reads;
+
             if is_duplicate {
                 processed_clusters += clusters;
             }
@@ -147,6 +151,7 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
                     total_num_reads,
                     processed_duplicate_groups,
                     processed_clusters,
+                    filtered_reads,
                     max_clusters,
                 );
             }
@@ -163,19 +168,21 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
         total_num_reads,
         processed_duplicate_groups,
         processed_clusters,
+        filtered_reads,
         max_clusters,
     );
 
-    info!("Complete\ninput: {total_num_reads} reads\nduplicate groups: {processed_duplicate_groups} groups\ntotal clusters: {processed_clusters}");
+    info!("Complete\ninput: {total_num_reads} reads\nduplicate groups: {processed_duplicate_groups} groups\ntotal clusters: {processed_clusters}\nfiltered reads: {filtered_reads}");
 
     Ok(())
 }
 
 /// Main consensus caller: coordinates simplex vs consensus processing
+/// The result format is (Output text, # reads, # clusters, # filtered reads, is_duplicate_group)
 fn consensus_call(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
-) -> Result<(String, usize, usize, bool)> {
+) -> Result<(String, usize, usize, usize, bool)> {
     if group.group_type == DuplicateGroupType::Filtered {
         handle_filtered_reads(group, args)
     } else if group.reads.len() == 1 {
@@ -189,7 +196,7 @@ fn consensus_call(
 fn handle_filtered_reads(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
-) -> Result<(String, usize, usize, bool)> {
+) -> Result<(String, usize, usize, usize, bool)> {
     let reads_u8 = group.reads.concat();
     let header_builder = formatter::HeaderFormatter::new(group, args);
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
@@ -215,14 +222,14 @@ fn handle_filtered_reads(
         read_idx += 1;
     }
 
-    Ok((result, group.reads.len(), 0, false))
+    Ok((result, group.reads.len(), 0, group.reads.len(), false))
 }
 
 /// Simplex read caller: processes single reads without consensus calling
 fn handle_simplex_read(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
-) -> Result<(String, usize, usize, bool)> {
+) -> Result<(String, usize, usize, usize, bool)> {
     let reads_u8 = group.reads.concat();
     let mut header_builder = formatter::HeaderFormatter::new(group, args);
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
@@ -247,14 +254,14 @@ fn handle_simplex_read(
         str::from_utf8(qual)?
     )?;
 
-    Ok((result, 1, 1, false))
+    Ok((result, 1, 1, 0, false))
 }
 
 /// Handles multi-read consensus calling with clustering
 fn process_consensus_reads(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
-) -> Result<(String, usize, usize, bool)> {
+) -> Result<(String, usize, usize, usize, bool)> {
     // Filtered groups should always be simplex reads.
     assert_ne!(group.group_type, DuplicateGroupType::Filtered);
 
@@ -301,7 +308,7 @@ fn process_consensus_reads(
     let consensus_output = generate_consensus_output(&mut graphs, &header_builder)?;
     result.push_str(&consensus_output);
 
-    Ok((result, group.reads.len(), graphs.len(), true))
+    Ok((result, group.reads.len(), graphs.len(), 0, true))
 }
 
 /// Determines which graph to cluster read with or creates new graph

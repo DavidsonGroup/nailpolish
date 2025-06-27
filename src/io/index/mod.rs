@@ -61,6 +61,7 @@ pub struct DuplicateGroup {
     pub group_type: DuplicateGroupType,
 }
 
+#[derive(PartialEq, Debug)]
 pub enum DuplicateGroupType {
     Valid,
     Filtered,

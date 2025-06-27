@@ -75,7 +75,7 @@ impl<'a> HeaderFormatter<'a> {
 
         if self.args.report_original_header {
             let id = String::from_utf8(read.id().to_vec()).unwrap();
-            orig_headers.push(format!("\"{}\"", id.escape_default()))
+            orig_headers.push(id.replace('\t', "\\t"))
         } else {
             // we can do anything
             orig_headers.push(String::new())
@@ -86,36 +86,54 @@ impl<'a> HeaderFormatter<'a> {
         let mut header = String::new();
         let orig_headers = &self.orig_headers[cluster_id];
 
-        // base
+        // CN: fastq-comment-format; header format compatible with minimap2 -y flag
+        // base header ID and molecular identifier tag
         write!(
             header,
-            "{}|id={}|type={}",
-            self.key, self.id, self.consensus_type,
+            "consensus_{} MI:Z:{} XT:Z:{}",
+            self.id, self.key, self.consensus_type,
         )
         .unwrap();
 
         // if this is a consensus read AND clusters are enabled, report cluster count
         if !self.args.no_clustering {
             let cluster_cnt = cluster_id + 1;
-            write!(header, "|cluster={cluster_cnt}").unwrap()
+            write!(header, " XC:i:{cluster_cnt}").unwrap()
         }
 
-        write!(header, "|reads_called={}", orig_headers.len()).unwrap();
+        write!(header, " XR:i:{}", orig_headers.len()).unwrap();
 
         // report extra stats
         if self.args.extra_stats {
-            write!(
-                header,
-                "|elapsed_us={}",
-                self.start_time.elapsed().as_micros()
-            )
-            .unwrap()
+            write!(header, " XE:i:{}", self.start_time.elapsed().as_micros()).unwrap()
         }
 
-        // report original header
+        // report original header as SAM array format
         if self.args.report_original_header {
-            write!(header, "|orig_header=[{}]", orig_headers.join(",")).unwrap()
+            write!(header, " XH:B:Z,{}", orig_headers.join(",")).unwrap()
         }
+
+        header
+    }
+
+    pub fn make_filtered_header(&self, record: &SequenceRecord, read_idx: usize) -> String {
+        let read_pos = read_idx + 1;
+        let mut header = String::new();
+        write!(
+            header,
+            "filtered_{}_{} MI:Z:{} XT:Z:filtered XN:i:{}",
+            self.id, read_pos, self.key, read_pos
+        )
+        .unwrap();
+
+        if self.args.report_original_header {
+            write!(
+                header,
+                " XH:B:Z,{}",
+                str::from_utf8(record.id()).unwrap().replace('\t', "\\t")
+            )
+            .unwrap();
+        };
 
         header
     }
@@ -131,24 +149,25 @@ impl<'a> HeaderFormatter<'a> {
 
         let mut header = String::new();
 
-        // format base
+        // CN: fastq-comment-format; header format compatible with minimap2 -y flag
+        // format base with SAM tags
         write!(
             header,
-            "{}|id={}|type=original|read={}",
-            self.key, self.id, read_pos
+            "original_{}_{} MI:Z:{} XT:Z:original XN:i:{}",
+            self.id, read_pos, self.key, read_pos
         )
         .unwrap();
 
         if !self.args.no_clustering {
             let cluster_cnt = cluster_id + 1;
-            write!(header, "|cluster={cluster_cnt}").unwrap()
+            write!(header, " XC:i:{cluster_cnt}").unwrap()
         }
 
         if self.args.extra_stats {
             for aln in alignment_predictions.iter() {
                 write!(
                     header,
-                    "|align_new_nodes={}|align_sequence_len={}|align_valid_nodes={}",
+                    " XA:i:{} XS:i:{} XV:i:{}",
                     aln.new_nodes, aln.sequence_len, aln.valid_nodes
                 )
                 .unwrap();
@@ -158,8 +177,8 @@ impl<'a> HeaderFormatter<'a> {
         if self.args.report_original_header {
             write!(
                 header,
-                "|orig_header=[\"{}\"]",
-                str::from_utf8(record.id()).unwrap().escape_default()
+                " XH:B:Z,{}",
+                str::from_utf8(record.id()).unwrap().replace('\t', "\\t")
             )
             .unwrap();
         };

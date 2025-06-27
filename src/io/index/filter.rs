@@ -48,48 +48,46 @@ pub fn filter_group_locations(
         let id = group.id;
         let key = group.key.clone();
 
-        reads
-            .into_iter()
-            .map(|r| DuplicateGroup {
-                id,
-                key: key.clone(),
-                reads: vec![r],
-                group_type: DuplicateGroupType::Filtered,
-            })
-            .collect()
+        vec![DuplicateGroup {
+            id,
+            key,
+            reads,
+            group_type: DuplicateGroupType::Filtered,
+        }]
     } else {
-        // For normal-sized groups, filter individual reads based on should_keep criteria
-        let mut kept_reads = Vec::new();
-        let mut filtered_reads = Vec::new();
-
         let id = group.id;
         let key = group.key.clone();
 
+        // For normal-sized groups, filter individual reads based on should_keep criteria
+        let mut valid_group = DuplicateGroup {
+            id,
+            key: key.clone(),
+            reads: vec![],
+            group_type: DuplicateGroupType::Valid,
+        };
+        let mut filt_group = DuplicateGroup {
+            id,
+            key: key,
+            reads: vec![],
+            group_type: DuplicateGroupType::Filtered,
+        };
+
         for (read_loc, read) in group.reads.iter().zip(reads) {
             if should_keep(read_loc, opts) {
-                kept_reads.push(read.clone())
+                valid_group.reads.push(read)
             } else {
-                filtered_reads.push(read.clone())
+                filt_group.reads.push(read)
             }
         }
 
-        let mut groups = Vec::new();
-        // Add the original group with kept reads (if any)
-        if !kept_reads.is_empty() {
-            groups.push(DuplicateGroup {
-                id,
-                key: key.clone(),
-                reads: kept_reads,
-                group_type: DuplicateGroupType::Valid,
-            });
-        }
+        let mut groups = vec![];
 
-        groups.extend(filtered_reads.into_iter().map(|r| DuplicateGroup {
-            id,
-            key: key.clone(),
-            reads: vec![r],
-            group_type: DuplicateGroupType::Filtered,
-        }));
+        if valid_group.reads.len() > 0 {
+            groups.push(valid_group);
+        }
+        if filt_group.reads.len() > 0 {
+            groups.push(filt_group);
+        }
 
         groups
     }

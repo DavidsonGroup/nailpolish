@@ -18,7 +18,7 @@ use spoa::{AlignmentEngine, AlignmentType};
 
 use crate::cli::ConsensusArgs;
 use crate::io::index::filter::{filter_group_locations, FilterOpts};
-use crate::io::index::{DuplicateGroup, FileIndexPath, IndexReader};
+use crate::io::index::{DuplicateGroup, DuplicateGroupType, FileIndexPath, IndexReader};
 
 mod cluster;
 mod formatter;
@@ -128,8 +128,8 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
                 .collect::<Result<Vec<_>>>()?
         };
 
-        for (elem, clusters, is_duplicate) in output.into_iter() {
-            processed_reads += 1;
+        for (elem, num_reads, clusters, is_duplicate) in output.into_iter() {
+            processed_reads += num_reads;
             if is_duplicate {
                 processed_clusters += clusters;
             }
@@ -167,20 +167,58 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     Ok(())
 }
 
-// CN: main-consensus-caller; coordinates simplex vs consensus processing
-fn consensus_call(group: &DuplicateGroup, args: &ConsensusArgs) -> Result<(String, usize, bool)> {
-    if group.reads.len() == 1 {
+/// Main consensus caller: coordinates simplex vs consensus processing
+fn consensus_call(
+    group: &DuplicateGroup,
+    args: &ConsensusArgs,
+) -> Result<(String, usize, usize, bool)> {
+    if group.group_type == DuplicateGroupType::Filtered {
+        handle_filtered_reads(group, args)
+    } else if group.reads.len() == 1 {
         handle_simplex_read(group, args)
     } else {
         process_consensus_reads(group, args)
     }
 }
 
-// CN: simplex-read-handler; processes single reads without consensus calling
+/// Filtered read caller: output filtered groups
+fn handle_filtered_reads(
+    group: &DuplicateGroup,
+    args: &ConsensusArgs,
+) -> Result<(String, usize, usize, bool)> {
+    let reads_u8 = group.reads.concat();
+    let header_builder = formatter::HeaderFormatter::new(group, args);
+    let mut reader = FastqReader::new(Cursor::new(reads_u8));
+    let mut result = String::new();
+
+    let mut read_idx = 0usize;
+
+    while let Some(read) = reader.next() {
+        let read = read.context("Invalid read")?;
+        let seq = read.seq();
+        let qual = read.qual().context("No quality")?;
+
+        let header = header_builder.make_filtered_header(&read, read_idx);
+
+        writeln!(
+            result,
+            "@{}\n{}\n+\n{}",
+            header,
+            str::from_utf8(&seq).unwrap(),
+            str::from_utf8(qual).unwrap()
+        )?;
+
+        read_idx += 1;
+    }
+
+    Ok((result, group.reads.len(), 0, false))
+}
+
+/// Simplex read caller: processes single reads without consensus calling
 fn handle_simplex_read(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
-) -> Result<(String, usize, bool)> {
+) -> Result<(String, usize, usize, bool)> {
     let reads_u8 = group.reads.concat();
     let mut header_builder = formatter::HeaderFormatter::new(group, args);
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
@@ -205,14 +243,17 @@ fn handle_simplex_read(
         str::from_utf8(qual)?
     )?;
 
-    Ok((result, 1, false))
+    Ok((result, 1, 1, false))
 }
 
-// CN: consensus-read-processor; handles multi-read consensus calling with clustering
+/// Handles multi-read consensus calling with clustering
 fn process_consensus_reads(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
-) -> Result<(String, usize, bool)> {
+) -> Result<(String, usize, usize, bool)> {
+    // Filtered groups should always be simplex reads.
+    assert_ne!(group.group_type, DuplicateGroupType::Filtered);
+
     let reads_u8 = group.reads.concat();
     let mut header_builder = formatter::HeaderFormatter::new(group, args);
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
@@ -256,10 +297,10 @@ fn process_consensus_reads(
     let consensus_output = generate_consensus_output(&mut graphs, &header_builder)?;
     result.push_str(&consensus_output);
 
-    Ok((result, graphs.len(), true))
+    Ok((result, group.reads.len(), graphs.len(), true))
 }
 
-// CN: clustering-algorithm; determines which graph to cluster read with or creates new graph
+/// Determines which graph to cluster read with or creates new graph
 fn cluster_read_to_graphs(
     seq: &[u8],
     qual: &[u8],
@@ -306,7 +347,7 @@ fn cluster_read_to_graphs(
     (inserted_cluster_id, alignment_predictions)
 }
 
-// CN: consensus-output-generator; creates final consensus sequences from graphs
+/// Creates final consensus sequences from graphs
 fn generate_consensus_output(
     graphs: &mut [spoa::Graph],
     header_builder: &formatter::HeaderFormatter,

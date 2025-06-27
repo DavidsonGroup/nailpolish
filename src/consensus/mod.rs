@@ -58,7 +58,7 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
 
     let index = index_rdr.load()?;
 
-    let total_num_reads = index.get_hashmap().len();
+    let total_num_reads = index.metadata().total_reads;
 
     // allocate a thread pool
     if is_multithreaded {
@@ -86,12 +86,16 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
 
     let report_progress = |processed_reads: usize,
                            total_num_reads: usize,
-                           processed_duplicate_reads: usize,
+                           processed_groups: usize,
                            processed_clusters: usize,
                            max_clusters: usize| {
-        let cluster_ratio = processed_clusters as f64 / processed_duplicate_reads as f64;
+        let cluster_ratio = processed_clusters as f64 / processed_groups as f64;
 
-        info!("proc: {processed_reads} / {total_num_reads} groups\t(clusters per duplicate group: avg {cluster_ratio:.2}, max {max_clusters})");
+        if cli.no_clustering {
+            info!("proc: {processed_reads} / {total_num_reads} reads");
+        } else {
+            info!("proc: {processed_reads} / {total_num_reads} reads\t(clusters per duplicate group: avg {cluster_ratio:.2}, max {max_clusters})");
+        }
     };
 
     const REPORT_INTERVAL: usize = 10000; // number of reads to process before reporting progress

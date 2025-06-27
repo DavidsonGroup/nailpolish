@@ -64,9 +64,7 @@ fn consensus_1t_no_clustering() {
 
     const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
 
-    // DISABLED due to bug
-    // TODO: remove when bug is fixed
-    // let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
+    let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
 
     temp.close().unwrap();
 }
@@ -95,9 +93,7 @@ fn consensus_4t_no_clustering() {
 
     const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
 
-    // DISABLED due to bug in SPOA SIMD algorithm
-    // TODO: remove when bug is fixed
-    // let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
+    let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
 
     temp.close().unwrap();
 }

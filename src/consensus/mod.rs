@@ -3,15 +3,15 @@
 // We also ask that you cite this software in publications
 // where you made use of it for any part of the data analysis.
 
+use core::str;
 /// Consensus calling implementation for duplicate read groups
 use std::cell::RefCell;
 use std::fmt::Write as StrWrite;
 use std::io::{Cursor, Write as IoWrite};
-use std::str;
 
 use anyhow::{Context as _, Result};
 use itertools::Itertools;
-use needletail::parser::FastqReader;
+use needletail::parser::{FastqReader, SequenceRecord};
 use needletail::FastxReader as _;
 use rayon::prelude::*;
 use spoa::{AlignmentEngine, AlignmentType};
@@ -202,14 +202,14 @@ fn handle_filtered_reads(
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
     let mut result = String::new();
 
-    let mut read_idx = 0usize;
+    let mut read_idx = 1usize;
 
     while let Some(read) = reader.next() {
         let read = read.context("Invalid read")?;
         let seq = read.seq();
         let qual = read.qual().context("No quality")?;
 
-        let header = header_builder.make_filtered_header(&read, read_idx);
+        let header = header_builder.make_filtered_header(read_idx);
 
         writeln!(
             result,
@@ -231,7 +231,8 @@ fn handle_simplex_read(
     args: &ConsensusArgs,
 ) -> Result<(String, usize, usize, usize, bool)> {
     let reads_u8 = group.reads.concat();
-    let mut header_builder = formatter::HeaderFormatter::new(group, args);
+    let header_builder = formatter::HeaderFormatter::new(group, args);
+
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
     let mut result = String::new();
 
@@ -240,11 +241,10 @@ fn handle_simplex_read(
         .context("No read found")?
         .context("Invalid read")?;
 
-    header_builder.add_read(0, &read);
+    let header = header_builder.make_simplex_header(String::from_utf8(read.id().to_vec()).unwrap());
 
     let seq = read.seq();
     let qual = read.qual().context("No quality")?;
-    let header = header_builder.make_consensus_header(0);
 
     writeln!(
         result,
@@ -257,6 +257,14 @@ fn handle_simplex_read(
     Ok((result, 1, 1, 0, false))
 }
 
+pub struct Cluster {
+    pub output: String,
+    pub orig_read_headers: Vec<String>,
+    pub graph: spoa::Graph,
+    pub read_count: usize,
+    pub id: usize,
+}
+
 /// Handles multi-read consensus calling with clustering
 fn process_consensus_reads(
     group: &DuplicateGroup,
@@ -266,38 +274,52 @@ fn process_consensus_reads(
     assert_ne!(group.group_type, DuplicateGroupType::Filtered);
 
     let reads_u8 = group.reads.concat();
-    let mut header_builder = formatter::HeaderFormatter::new(group, args);
+    let header_builder = formatter::HeaderFormatter::new(group, args);
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
-    let mut result = String::new();
 
-    let mut read_idx = 0usize;
-    let mut graphs = vec![spoa::Graph::new()];
+    // initialize cluster with just one empty cluster
+    let mut clusters = vec![Cluster {
+        output: String::new(),
+        orig_read_headers: vec![],
+        graph: spoa::Graph::new(),
+        read_count: 0,
+        id: 1,
+    }];
+
+    let mut read_idx = 1usize;
     let mut first_read_in_group = true;
-
     while let Some(read) = reader.next() {
+        // fetch read quality and sequence
         let read = read.context("Invalid read")?;
-        let seq = read.seq();
-        let qual = read.qual().context("No quality")?;
 
-        let (inserted_cluster_id, alignment_predictions) =
-            cluster_read_to_graphs(&seq, qual, &mut graphs, args, first_read_in_group);
+        // cluster this read
+        let (inserted_cluster, alignment_predictions) =
+            insert_read_into_clusters(&read, &mut clusters, args, first_read_in_group)?;
+        inserted_cluster.read_count += 1;
 
-        header_builder.add_read(inserted_cluster_id, &read);
+        // save the read header, if needed
+        // we just leave the vec empty if the argument was not passed
+        // to avoid unnecessary complexity
+        if args.report_original_header {
+            inserted_cluster
+                .orig_read_headers
+                .push(String::from_utf8(read.id().to_vec()).unwrap());
+        }
 
+        // report the read, if needed
         if args.report_original_reads {
             let header = header_builder.make_original_header(
-                &read,
                 read_idx,
                 alignment_predictions,
-                inserted_cluster_id,
+                inserted_cluster,
             );
 
             writeln!(
-                result,
+                inserted_cluster.output,
                 "@{}\n{}\n+\n{}",
                 header,
-                str::from_utf8(&seq).unwrap(),
-                str::from_utf8(qual).unwrap()
+                str::from_utf8(&read.seq()).unwrap(),
+                str::from_utf8(read.qual().unwrap()).unwrap(),
             )?;
         }
 
@@ -305,25 +327,33 @@ fn process_consensus_reads(
         first_read_in_group = false;
     }
 
-    let consensus_output = generate_consensus_output(&mut graphs, &header_builder)?;
-    result.push_str(&consensus_output);
+    let result = generate_consensus_output(&mut clusters, &header_builder)?;
 
-    Ok((result, group.reads.len(), graphs.len(), 0, true))
+    Ok((result, group.reads.len(), clusters.len(), 0, true))
 }
 
 /// Determines which graph to cluster read with or creates new graph
-fn cluster_read_to_graphs(
-    seq: &[u8],
-    qual: &[u8],
-    graphs: &mut Vec<spoa::Graph>,
+fn insert_read_into_clusters<'a>(
+    record: &SequenceRecord,
+    clusters: &'a mut Vec<Cluster>,
     args: &ConsensusArgs,
     first_read_in_group: bool,
-) -> (usize, Vec<spoa::AlignmentResult>) {
+) -> Result<(&'a mut Cluster, Vec<spoa::AlignmentResult>)> {
+    // we will store individual predictions here
     let mut alignment_predictions = Vec::new();
+
     let mut did_cluster = false;
     let mut inserted_cluster_id = 0;
 
-    for (cluster_id, graph) in graphs.iter_mut().enumerate() {
+    // extract sequence and quality from the read
+    let seq = &record.seq();
+    let qual = record
+        .qual()
+        .context("Only .fastq files are supported for now")?;
+
+    for (cluster_id, cluster) in clusters.iter_mut().enumerate() {
+        let graph = &mut cluster.graph;
+
         let align = with_alignment_engine(|engine| engine.align_from_bytes(seq, graph));
 
         let will_cluster = if first_read_in_group || args.no_clustering {
@@ -337,7 +367,7 @@ fn cluster_read_to_graphs(
         };
 
         if will_cluster {
-            let alignment_result = graph.add_alignment_from_bytes(&align, seq, qual);
+            let alignment_result = graph.add_alignment_from_bytes(&align, seq, &qual);
             inserted_cluster_id = cluster_id;
             did_cluster = true;
             debug!("Added result:\t{alignment_result:?}");
@@ -347,29 +377,46 @@ fn cluster_read_to_graphs(
 
     // Create new graph if read didn't cluster with existing ones
     if !did_cluster {
-        let mut new_graph = spoa::Graph::new();
-        let align = with_alignment_engine(|engine| engine.align_from_bytes(seq, &new_graph));
-        alignment_predictions.push(new_graph.add_alignment_from_bytes(&align, seq, qual));
+        let mut new_cluster = Cluster {
+            output: String::new(),
+            orig_read_headers: vec![],
+            graph: spoa::Graph::new(),
+            read_count: 0,
+            id: clusters.len() + 1,
+        };
+
+        let align =
+            with_alignment_engine(|engine| engine.align_from_bytes(seq, &new_cluster.graph));
+
+        new_cluster
+            .graph
+            .add_alignment_from_bytes(&align, seq, qual);
+
         debug!("Added new graph");
-        graphs.push(new_graph);
-        inserted_cluster_id = graphs.len() - 1;
+
+        clusters.push(new_cluster);
+        inserted_cluster_id = clusters.len() - 1;
     }
 
-    (inserted_cluster_id, alignment_predictions)
+    Ok((&mut clusters[inserted_cluster_id], alignment_predictions))
 }
 
 /// Creates final consensus sequences from graphs
 fn generate_consensus_output(
-    graphs: &mut [spoa::Graph],
+    clusters: &mut Vec<Cluster>,
     header_builder: &formatter::HeaderFormatter,
 ) -> Result<String> {
     let mut result = String::new();
 
-    for (idx, graph) in graphs.iter_mut().enumerate() {
-        let consensus = graph.consensus_with_quality();
+    for cluster in clusters.iter_mut() {
+        let consensus = cluster.graph.consensus_with_quality();
         let seq = &consensus.sequence;
         let qual = &consensus.quality;
-        let header = header_builder.make_consensus_header(idx);
+        let header = header_builder.make_consensus_header(cluster);
+
+        if cluster.output.len() > 0 {
+            write!(result, "{}", cluster.output).unwrap();
+        }
 
         writeln!(result, "@{}\n{}\n+\n{}", header, seq, qual)?;
     }

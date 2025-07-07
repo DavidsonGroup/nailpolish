@@ -16,15 +16,29 @@ pub enum PresetBarcodeFormats {
 
     /// bcl2fastq format, which has `:<UMI>` at the end of the read ID.
     Illumina,
+
+    /// .sam tag format with barcode and UMI, which uses the :CB:Z:____ and :UB:Z:____ tag format.
+    SamTaggedCBUB,
+
+    /// .sam tag format with only barcode, which uses the :CB:Z:___ format.
+    SamTaggedCB,
 }
 
 impl PresetBarcodeFormats {
     /// Returns the corresponding regex for the preset
     pub fn to_regex(&self) -> Result<Regex, regex::Error> {
         Regex::new(match self {
-            PresetBarcodeFormats::BcUmi => r"^([ATCGNX]{16})_([ATCGNX]{12})",
-            PresetBarcodeFormats::UmiTools => r"_([ATCGNX]+)$",
-            PresetBarcodeFormats::Illumina => r":([ATCGNX]+)$",
+            PresetBarcodeFormats::BcUmi => r"^(?<CB>[ATCGNX]{16})_(?<UB>[ATCGNX]{12})",
+            PresetBarcodeFormats::UmiTools => r"_(?<UB>[ATCGNX]+)$",
+            PresetBarcodeFormats::Illumina => r":(?<UB>[ATCGNX]+)$",
+            PresetBarcodeFormats::SamTaggedCB => r"\t:CB:Z:(?<CB>[ATCGNX]+)",
+            // this one is a bit annoying. it's two regexes, connected with an OR:
+            //   regex 1: \t:CB:Z:(?<CB>[ATCGNX]+).*\t:UB:Z:(?<UB>[ATCGNX]+
+            //   regex 2: \t:UB:Z:(?<UB>[ATCGNX]+).*\t:CB:Z:(?<CB>[ATCGNX]+)
+            // this accounts for the fact that the order of CB and UB may be switched around.
+            PresetBarcodeFormats::SamTaggedCBUB => {
+                r"(?:\t:CB:Z:(?<CB>[ATCGNX]+).*\t:UB:Z:(?<UB>[ATCGNX]+))|(?:\t:UB:Z:(?<UB>[ATCGNX]+).*\t:CB:Z:(?<CB>[ATCGNX]+))"
+            }
         })
     }
 }

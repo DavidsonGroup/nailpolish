@@ -14,7 +14,10 @@ use std::time::SystemTimeError;
 use anyhow::{Context, Result};
 use indexmap::IndexMap;
 use needletail::parser::SequenceRecord;
-use rkyv::{vec::ArchivedVec, Archive, Deserialize, Serialize};
+use rkyv::{
+    option::ArchivedOption, string::ArchivedString, vec::ArchivedVec, Archive, Deserialize,
+    Serialize,
+};
 use smallvec::{smallvec, SmallVec};
 
 use crate::io::index::record_identifier::ArchivedRecordIdentifier;
@@ -83,6 +86,9 @@ pub struct Index {
     /// The current path of the index and file. This should be set to the invocation path upon
     /// index loading, unlike metadata.file_path
     path: FileIndexPath,
+
+    /// Comments/tags to emit
+    captures: Vec<Option<String>>,
 }
 
 impl Index {
@@ -93,9 +99,21 @@ impl Index {
             metadata: IndexMetadata::default(),
             _start: std::time::SystemTime::now(),
             path: file.clone(),
+            captures: vec![],
         };
         index.metadata.add_general_metadata(file);
         index
+    }
+
+    /// Add regular expression capture groups
+    pub fn add_capture_groups(&mut self, re: &regex::Regex) {
+        let names = re
+            .capture_names() // get capture names
+            .skip(1); // we skip over the first result, since this is the entire capture group
+
+        self.captures = names
+            .map(|v| v.map(str::to_string)) // convert all Some(&str) to Some(String)
+            .collect()
     }
 
     /// Retrieves a duplicate group by its ID.
@@ -205,5 +223,9 @@ impl ArchivedIndex {
     /// Provides access to the metadata of the index.
     pub fn metadata(&self) -> IndexMetadata {
         deserialize_standard(&self.metadata)
+    }
+
+    pub fn captures(&self) -> &ArchivedVec<ArchivedOption<ArchivedString>> {
+        &self.captures
     }
 }

@@ -4,7 +4,6 @@
 // where you made use of it for any part of the data analysis.
 
 use core::str;
-/// Consensus calling implementation for duplicate read groups
 use std::cell::RefCell;
 use std::fmt::Write as StrWrite;
 use std::io::{Cursor, Write as IoWrite};
@@ -14,6 +13,9 @@ use itertools::Itertools;
 use needletail::parser::{FastqReader, SequenceRecord};
 use needletail::FastxReader as _;
 use rayon::prelude::*;
+use rkyv::option::ArchivedOption;
+use rkyv::string::ArchivedString;
+use rkyv::vec::ArchivedVec;
 use spoa::{AlignmentEngine, AlignmentType};
 
 use crate::cli::ConsensusArgs;
@@ -22,6 +24,8 @@ use crate::io::index::{DuplicateGroup, DuplicateGroupType, FileIndexPath, IndexR
 
 mod cluster;
 mod formatter;
+
+type ArchivedCaptures = ArchivedVec<ArchivedOption<ArchivedString>>;
 
 // CN: perf-optimization; thread-local AlignmentEngine to avoid creating new engine per consensus_call
 thread_local! {
@@ -124,13 +128,13 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
             // parallel: use rayon thread pool
             input
                 .par_iter()
-                .map(|group| consensus_call(group, cli))
+                .map(|group| consensus_call(group, cli, index.captures()))
                 .collect::<Result<Vec<_>>>()?
         } else {
             // otherwise, just use a single iterator
             input
                 .iter()
-                .map(|group| consensus_call(group, cli))
+                .map(|group| consensus_call(group, cli, index.captures()))
                 .collect::<Result<Vec<_>>>()?
         };
 
@@ -182,13 +186,14 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
 fn consensus_call(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
+    captures: &ArchivedCaptures,
 ) -> Result<(String, usize, usize, usize, bool)> {
     if group.group_type == DuplicateGroupType::Filtered {
-        handle_filtered_reads(group, args)
+        handle_filtered_reads(group, args, captures)
     } else if group.reads.len() == 1 {
-        handle_simplex_read(group, args)
+        handle_simplex_read(group, args, captures)
     } else {
-        process_consensus_reads(group, args)
+        process_consensus_reads(group, args, captures)
     }
 }
 
@@ -196,9 +201,10 @@ fn consensus_call(
 fn handle_filtered_reads(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
+    captures: &ArchivedCaptures,
 ) -> Result<(String, usize, usize, usize, bool)> {
     let reads_u8 = group.reads.concat();
-    let header_builder = formatter::HeaderFormatter::new(group, args);
+    let header_builder = formatter::HeaderFormatter::new(group, args, captures);
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
     let mut result = String::new();
 
@@ -229,9 +235,10 @@ fn handle_filtered_reads(
 fn handle_simplex_read(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
+    captures: &ArchivedCaptures,
 ) -> Result<(String, usize, usize, usize, bool)> {
     let reads_u8 = group.reads.concat();
-    let header_builder = formatter::HeaderFormatter::new(group, args);
+    let header_builder = formatter::HeaderFormatter::new(group, args, captures);
 
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
     let mut result = String::new();
@@ -269,12 +276,13 @@ pub struct Cluster {
 fn process_consensus_reads(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
+    captures: &ArchivedCaptures,
 ) -> Result<(String, usize, usize, usize, bool)> {
     // Filtered groups should always be simplex reads.
     assert_ne!(group.group_type, DuplicateGroupType::Filtered);
 
     let reads_u8 = group.reads.concat();
-    let header_builder = formatter::HeaderFormatter::new(group, args);
+    let header_builder = formatter::HeaderFormatter::new(group, args, captures);
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
 
     // initialize cluster with just one empty cluster

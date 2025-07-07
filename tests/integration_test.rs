@@ -180,17 +180,23 @@ fn consensus_with_cluster_file() {
             "-o",
             path,
             "--threads",
-            "4",
+            "3",
             "--report-original-header",
             "--report-original-reads",
         ])
         .assert()
         .success();
 
-    // For now, just check the file was created successfully
-
     const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
-    let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
+
+    // cluster files will not have the CB/UB tags, so
+    // we will only compare lines 2 and 4 of each output read
+    let cmp_cmd = format!(
+        "diff \
+        <(awk 'NR % 4 == 2 || NR % 4 == 0' {CORRECT_FILE} | sort) \
+        <(awk 'NR % 4 == 2 || NR % 4 == 0' {path} | sort)"
+    );
+    let _ = Command::new("bash").args(["-c", &cmp_cmd]).unwrap();
 
     temp_fastq.close().unwrap();
     temp_consensus.close().unwrap();

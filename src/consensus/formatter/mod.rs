@@ -5,13 +5,14 @@
 
 pub mod comment;
 use comment::{write_comments, AlignmentResultSerialWrapper, FastqComment, FastqCommentType};
+use rkyv::option::ArchivedOption;
 use serde_json::json;
 
 use std::time::Instant;
 
 use crate::{
     cli::ConsensusArgs,
-    consensus::Cluster,
+    consensus::{ArchivedCaptures, Cluster},
     io::index::{DuplicateGroup, DuplicateGroupType},
 };
 
@@ -58,7 +59,11 @@ pub struct HeaderFormatter<'a> {
 }
 
 impl<'a> HeaderFormatter<'a> {
-    pub fn new(group: &'a DuplicateGroup, args: &'a ConsensusArgs) -> Self {
+    pub fn new(
+        group: &'a DuplicateGroup,
+        args: &'a ConsensusArgs,
+        captures: &'a ArchivedCaptures,
+    ) -> Self {
         let group_size = group.reads.len();
         let key = group.key.to_string();
 
@@ -74,10 +79,20 @@ impl<'a> HeaderFormatter<'a> {
             DuplicateGroupType::Filtered => "filtered".to_string(),
         };
 
-        let tags = vec![
+        let mut tags = vec![
             FastqComment::new("MI", FastqCommentType::String(key.clone())),
             FastqComment::new("nI", FastqCommentType::Integer(group.id)),
         ];
+
+        // add captures as tags
+        for (tag, val) in captures.iter().zip(group.key.components()) {
+            if let ArchivedOption::Some(tag) = tag {
+                tags.push(FastqComment::new(
+                    &tag,
+                    FastqCommentType::String(val.to_string()),
+                ))
+            }
+        }
 
         Self {
             args,

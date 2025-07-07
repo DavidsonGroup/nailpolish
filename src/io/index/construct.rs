@@ -56,26 +56,26 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
     const REPORT_INTERVAL: u64 = 2 * 1024 * 1024 * 1024; // 2GB
     let mut last_report = 0;
 
-    // callback function to process each read that comes in & add to the index
-    let callback = |loc: ReadLocation, key: RecordIdentifier, seq: SequenceRecord| {
-        let pos = loc.pos();
-
-        // should we report our current progress?
-        if pos - last_report > REPORT_INTERVAL {
-            last_report = pos;
-
-            info!(
-                "proc: {} / {}",
-                format_size(pos, size_formatter),
-                format_size(total_bytes, size_formatter)
-            );
-        }
-
-        index.add_read(key, loc, seq);
-        Ok(())
-    };
-
     if let Some(cluster_file) = &cli.clusters {
+        // callback function to process each read that comes in & add to the index
+        let callback = |loc: ReadLocation, key: RecordIdentifier, seq: SequenceRecord| {
+            let pos = loc.pos();
+
+            // should we report our current progress?
+            if pos - last_report > REPORT_INTERVAL {
+                last_report = pos;
+
+                info!(
+                    "proc: {} / {}",
+                    format_size(pos, size_formatter),
+                    format_size(total_bytes, size_formatter)
+                );
+            }
+
+            index.add_read(key, loc, seq);
+            Ok(())
+        };
+
         iter_lines_with_cluster_file(&mut reader, cluster_file, callback)?;
     } else {
         let re = match &cli.barcode_regex {
@@ -85,6 +85,27 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
             }
             None => cli.preset.to_regex(),
         }?;
+
+        index.add_capture_groups(&re);
+
+        // callback function to process each read that comes in & add to the index
+        let callback = |loc: ReadLocation, key: RecordIdentifier, seq: SequenceRecord| {
+            let pos = loc.pos();
+
+            // should we report our current progress?
+            if pos - last_report > REPORT_INTERVAL {
+                last_report = pos;
+
+                info!(
+                    "proc: {} / {}",
+                    format_size(pos, size_formatter),
+                    format_size(total_bytes, size_formatter)
+                );
+            }
+
+            index.add_read(key, loc, seq);
+            Ok(())
+        };
 
         iter_lines_with_regex(&mut reader, &re, callback)?
     }

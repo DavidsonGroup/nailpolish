@@ -13,22 +13,26 @@ pub struct RecordIdentifier(pub String);
 
 impl RecordIdentifier {
     pub fn from_recs(v: &[&str]) -> Self {
-        Self(v.join("_"))
+        Self(v.join("\0"))
     }
 
     pub fn from_str(v: &str) -> Self {
         Self(v.to_string())
     }
+
+    pub fn components(&self) -> std::str::Split<'_, char> {
+        self.0.split('\0')
+    }
 }
 
 impl fmt::Display for RecordIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.0.replace('\0', "_"))
     }
 }
 
 impl fmt::Display for ArchivedRecordIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.0.replace('\0', "_"))
     }
 }

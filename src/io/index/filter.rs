@@ -38,6 +38,15 @@ pub fn should_keep(loc: &ReadLocation, opts: &FilterOpts) -> bool {
     quality_good && len_good
 }
 
+pub fn group_from_simplex(group: &DuplicateGroupLocation, reads: Vec<Vec<u8>>) -> DuplicateGroup {
+    DuplicateGroup {
+        id: group.id,
+        key: group.key.clone(),
+        reads,
+        group_type: DuplicateGroupType::Valid,
+    }
+}
+
 pub fn filter_group_locations(
     group: &DuplicateGroupLocation,
     reads: Vec<Vec<u8>>,

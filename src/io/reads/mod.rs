@@ -17,8 +17,9 @@ pub trait GroupedReadsAccessor {
     where
         Self: Sized;
 
+    fn fetch_sequential_read(&mut self, read: &ReadLocation) -> Result<Vec<u8>>;
+
     fn fetch_reads(&mut self, reads: &[ReadLocation]) -> Result<Vec<Vec<u8>>>;
-    fn fetch_reads_random(&mut self, reads: &[ReadLocation]) -> Result<Vec<Vec<u8>>>;
 
     fn fetch_group(&mut self, group: &DuplicateGroupLocation) -> Result<Vec<Vec<u8>>> {
         self.fetch_reads(&group.reads)

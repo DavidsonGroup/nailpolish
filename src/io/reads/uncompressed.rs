@@ -26,12 +26,22 @@ pub struct UncompressedFileReader {
     rnd: RandomAccessReader,
 }
 
+impl UncompressedFileReader {
+    fn fetch_reads_random(&mut self, reads: &[ReadLocation]) -> Result<Vec<Vec<u8>>> {
+        reads.iter().map(|read| self.rnd.fetch(read)).collect()
+    }
+}
+
 impl GroupedReadsAccessor for UncompressedFileReader {
     fn new(file: &Path) -> Result<Self> {
         Ok(Self {
             seq: SequentialReader::new(file)?,
             rnd: RandomAccessReader::new(file)?,
         })
+    }
+
+    fn fetch_sequential_read(&mut self, read: &ReadLocation) -> Result<Vec<u8>> {
+        self.seq.fetch(read)
     }
 
     fn fetch_reads(&mut self, reads: &[ReadLocation]) -> Result<Vec<Vec<u8>>> {
@@ -44,10 +54,6 @@ impl GroupedReadsAccessor for UncompressedFileReader {
         reads.extend(self.fetch_reads_random(tail)?);
 
         Ok(reads)
-    }
-
-    fn fetch_reads_random(&mut self, reads: &[ReadLocation]) -> Result<Vec<Vec<u8>>> {
-        reads.iter().map(|read| self.rnd.fetch(read)).collect()
     }
 }
 

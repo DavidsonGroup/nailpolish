@@ -57,6 +57,12 @@ pub struct DuplicateGroupLocation {
     pub id: usize,
 }
 
+impl DuplicateGroupLocation {
+    pub fn is_simplex(&self) -> bool {
+        self.reads.len() == 1
+    }
+}
+
 pub struct DuplicateGroup {
     pub key: RecordIdentifier,
     pub reads: Vec<Vec<u8>>,

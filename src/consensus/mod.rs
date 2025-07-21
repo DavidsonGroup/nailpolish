@@ -9,7 +9,6 @@ use std::fmt::Write as StrWrite;
 use std::io::{Cursor, Write as IoWrite};
 
 use anyhow::{Context as _, Result};
-use itertools::Itertools;
 use needletail::parser::{FastqReader, SequenceRecord};
 use needletail::FastxReader as _;
 use rayon::prelude::*;
@@ -24,6 +23,9 @@ use crate::io::index::{DuplicateGroup, DuplicateGroupType, FileIndexPath, IndexR
 
 mod cluster;
 mod formatter;
+mod output_writer;
+
+pub use output_writer::OutputWriter;
 
 type ArchivedCaptures = ArchivedVec<ArchivedOption<ArchivedString>>;
 
@@ -62,8 +64,6 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
 
     let index = index_rdr.load()?;
 
-    let total_num_reads = index.metadata().total_reads;
-
     // allocate a thread pool
     if is_multithreaded {
         info!("Using thread pool with {} threads", cli.threads,)
@@ -79,122 +79,63 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     }
 
     let mut accessor = index.get_read_accessor(&paths)?;
-    let buffer_size: usize = 100usize * cli.threads;
 
-    let mut writer = crate::utils::get_writer(cli.output.as_deref())?;
+    let mut writer = output_writer::OutputWriter::new(
+        crate::utils::get_writer(cli.output.as_deref())?,
+        index.metadata().total_reads,
+        cli.no_clustering,
+    );
 
-    let mut processed_reads = 0;
-    let mut processed_clusters = 0;
-    let mut processed_duplicate_groups = 0;
-    let mut max_clusters = 0;
-    let mut filtered_reads = 0;
+    let opts = FilterOpts::new(cli);
+    let captures = index.captures();
 
-    let report_progress = |processed_reads: usize,
-                           total_num_reads: usize,
-                           processed_groups: usize,
-                           processed_clusters: usize,
-                           filtered_reads: usize,
-                           max_clusters: usize| {
-        let cluster_ratio = processed_clusters as f64 / processed_groups as f64;
+    let mut buffer = vec![];
+    let buffer_chunk_size = 512 * cli.threads; // number of groups to multithread at one time
 
-        if cli.no_clustering {
-            info!("proc: {processed_reads} / {total_num_reads} reads (filtered: {filtered_reads})");
+    for group_loc in index.groups() {
+        let reads = accessor.fetch_group(&group_loc)?;
+        let groups = filter_group_locations(&group_loc, reads, &opts);
+
+        buffer.extend(groups);
+
+        if buffer.len() >= buffer_chunk_size {
+            process_groups_parallel(&buffer, cli, captures, &mut writer)?;
+            buffer.clear();
+        }
+    }
+
+    process_groups_parallel(&buffer, cli, captures, &mut writer)?;
+
+    writer.finalize()
+}
+
+fn process_groups_parallel(
+    groups: &Vec<DuplicateGroup>,
+    args: &ConsensusArgs,
+    captures: &ArchivedCaptures,
+    writer: &mut output_writer::OutputWriter<impl IoWrite>,
+) -> Result<()> {
+    let closure = |g: &DuplicateGroup| {
+        if g.group_type == DuplicateGroupType::Filtered {
+            handle_filtered_reads(g, args, captures)
+        } else if g.reads.len() == 1 {
+            process_simplex_read(g, args, captures)
         } else {
-            info!("proc: {processed_reads} / {total_num_reads} reads\t(clusters per duplicate group: avg {cluster_ratio:.2}, max {max_clusters}; filtered: {filtered_reads})");
+            process_consensus_reads(g, args, captures)
         }
     };
 
-    const REPORT_INTERVAL: usize = 10000; // number of reads to process before reporting progress
+    let output = if args.threads == 1 {
+        groups.iter().map(closure).collect::<Result<Vec<_>>>()?
+    } else {
+        groups.par_iter().map(closure).collect::<Result<Vec<_>>>()?
+    };
 
-    // CN: group-size-filter; large groups will be split into individual reads via flat_map
-    let groups_iter = index.groups();
-
-    for chunk in &groups_iter.chunks(buffer_size) {
-        // perform the read operations
-        let input = chunk
-            .into_iter()
-            .map(|group_loc| -> Result<Vec<_>> {
-                let opts = FilterOpts::new(cli);
-                let reads = accessor.fetch_group(&group_loc)?;
-                let groups = filter_group_locations(&group_loc, reads, &opts);
-
-                Ok(groups)
-            })
-            .flatten_ok()
-            .collect::<Result<Vec<_>>>()?;
-
-        // perform the consensus call
-        let output = if is_multithreaded {
-            // parallel: use rayon thread pool
-            input
-                .par_iter()
-                .map(|group| consensus_call(group, cli, index.captures()))
-                .collect::<Result<Vec<_>>>()?
-        } else {
-            // otherwise, just use a single iterator
-            input
-                .iter()
-                .map(|group| consensus_call(group, cli, index.captures()))
-                .collect::<Result<Vec<_>>>()?
-        };
-
-        for (elem, num_reads, clusters, num_filtered_reads, is_duplicate) in output.into_iter() {
-            processed_reads += num_reads;
-            filtered_reads += num_filtered_reads;
-
-            if is_duplicate {
-                processed_clusters += clusters;
-            }
-            processed_duplicate_groups += is_duplicate as usize;
-
-            max_clusters = std::cmp::max(max_clusters, clusters);
-
-            if processed_reads % REPORT_INTERVAL == 0 {
-                report_progress(
-                    processed_reads,
-                    total_num_reads,
-                    processed_duplicate_groups,
-                    processed_clusters,
-                    filtered_reads,
-                    max_clusters,
-                );
-            }
-
-            write!(writer, "{}", elem)?;
-
-            writer.flush()?;
-            log::logger().flush();
-        }
+    for (content, metadata) in output {
+        writer.write_read(&content, &metadata)?;
     }
-
-    report_progress(
-        processed_reads,
-        total_num_reads,
-        processed_duplicate_groups,
-        processed_clusters,
-        filtered_reads,
-        max_clusters,
-    );
-
-    info!("Complete\ninput: {total_num_reads} reads\nduplicate groups: {processed_duplicate_groups} groups\ntotal clusters: {processed_clusters}\nfiltered reads: {filtered_reads}");
 
     Ok(())
-}
-
-/// Main consensus caller: coordinates simplex vs consensus processing
-/// The result format is (Output text, # reads, # clusters, # filtered reads, is_duplicate_group)
-fn consensus_call(
-    group: &DuplicateGroup,
-    args: &ConsensusArgs,
-    captures: &ArchivedCaptures,
-) -> Result<(String, usize, usize, usize, bool)> {
-    if group.group_type == DuplicateGroupType::Filtered {
-        handle_filtered_reads(group, args, captures)
-    } else if group.reads.len() == 1 {
-        handle_simplex_read(group, args, captures)
-    } else {
-        process_consensus_reads(group, args, captures)
-    }
 }
 
 /// Filtered read caller: output filtered groups
@@ -202,7 +143,7 @@ fn handle_filtered_reads(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
     captures: &ArchivedCaptures,
-) -> Result<(String, usize, usize, usize, bool)> {
+) -> Result<(String, output_writer::OutputMetadata)> {
     let reads_u8 = group.reads.concat();
     let header_builder = formatter::HeaderFormatter::new(group, args, captures);
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
@@ -228,20 +169,27 @@ fn handle_filtered_reads(
         read_idx += 1;
     }
 
-    Ok((result, group.reads.len(), 0, group.reads.len(), false))
+    Ok((
+        result,
+        output_writer::OutputMetadata {
+            num_reads: group.reads.len(),
+            clusters: 0,
+            num_filtered_reads: group.reads.len(),
+            is_duplicate: true,
+        },
+    ))
 }
 
 /// Simplex read caller: processes single reads without consensus calling
-fn handle_simplex_read(
+fn process_simplex_read(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
     captures: &ArchivedCaptures,
-) -> Result<(String, usize, usize, usize, bool)> {
+) -> Result<(String, output_writer::OutputMetadata)> {
     let reads_u8 = group.reads.concat();
     let header_builder = formatter::HeaderFormatter::new(group, args, captures);
 
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
-    let mut result = String::new();
 
     let read = reader
         .next()
@@ -253,15 +201,22 @@ fn handle_simplex_read(
     let seq = read.seq();
     let qual = read.qual().context("No quality")?;
 
-    writeln!(
-        result,
+    let result = format!(
         "@{}\n{}\n+\n{}",
         header,
         str::from_utf8(&seq)?,
         str::from_utf8(qual)?
-    )?;
+    );
 
-    Ok((result, 1, 1, 0, false))
+    Ok((
+        result,
+        output_writer::OutputMetadata {
+            num_reads: 1,
+            clusters: 1,
+            num_filtered_reads: 0,
+            is_duplicate: false,
+        },
+    ))
 }
 
 pub struct Cluster {
@@ -277,7 +232,7 @@ fn process_consensus_reads(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
     captures: &ArchivedCaptures,
-) -> Result<(String, usize, usize, usize, bool)> {
+) -> Result<(String, output_writer::OutputMetadata)> {
     // Filtered groups should always be simplex reads.
     assert_ne!(group.group_type, DuplicateGroupType::Filtered);
 
@@ -337,7 +292,15 @@ fn process_consensus_reads(
 
     let result = generate_consensus_output(&mut clusters, &header_builder)?;
 
-    Ok((result, group.reads.len(), clusters.len(), 0, true))
+    Ok((
+        result,
+        output_writer::OutputMetadata {
+            num_reads: group.reads.len(),
+            clusters: clusters.len(),
+            num_filtered_reads: 0,
+            is_duplicate: true,
+        },
+    ))
 }
 
 /// Determines which graph to cluster read with or creates new graph

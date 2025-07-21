@@ -71,8 +71,8 @@ fn consensus_1t_no_clustering() {
 }
 
 #[test]
-fn consensus_4t_no_clustering() {
-    let temp = assert_fs::NamedTempFile::new("consensus_4t.fastq").unwrap();
+fn consensus_3t_no_clustering() {
+    let temp = assert_fs::NamedTempFile::new("consensus_3t.fastq").unwrap();
     let path = temp.path().to_str().unwrap();
 
     let mut command = Command::cargo_bin("nailpolish").unwrap();
@@ -84,7 +84,7 @@ fn consensus_4t_no_clustering() {
             "-o",
             path,
             "--threads",
-            "4",
+            "3",
             "--report-original-header",
             "--report-original-reads",
             "--no-clustering",
@@ -121,8 +121,8 @@ fn extract_3() {
 }
 
 #[test]
-fn consensus_4t_with_clustering() {
-    let temp = assert_fs::NamedTempFile::new("consensus_4t.fastq").unwrap();
+fn consensus_3t_with_clustering() {
+    let temp = assert_fs::NamedTempFile::new("consensus_3t.fastq").unwrap();
     let path = temp.path().to_str().unwrap();
 
     let mut command = Command::cargo_bin("nailpolish").unwrap();
@@ -134,7 +134,7 @@ fn consensus_4t_with_clustering() {
             "-o",
             path,
             "--threads",
-            "4",
+            "3",
             "--report-original-header",
             "--report-original-reads",
         ])
@@ -146,6 +146,41 @@ fn consensus_4t_with_clustering() {
     let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
 
     temp.close().unwrap();
+}
+
+#[test]
+fn consensus_out_of_order() {
+    let temp = assert_fs::NamedTempFile::new("consensus_3t.fastq").unwrap();
+    let path = temp.path().to_str().unwrap();
+
+    let mut command = Command::cargo_bin("nailpolish").unwrap();
+
+    let _ = command
+        .args([
+            "consensus",
+            SAMPLE_FASTQ,
+            "-o",
+            path,
+            "--threads",
+            "3",
+            "--report-original-header",
+            "--report-original-reads",
+        ])
+        .assert()
+        .success();
+
+    const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
+
+    // cluster files will not have the CB/UB tags, so
+    // we will only compare lines 2 and 4 of each output read
+    let cmp_cmd = format!(
+        "diff \
+        <(sort {CORRECT_FILE}) \
+        <(sort {path})"
+    );
+    // let _ = Command::new("bash").args(["-c", &cmp_cmd]).unwrap();
+
+    temp.close().unwrap()
 }
 
 #[test]

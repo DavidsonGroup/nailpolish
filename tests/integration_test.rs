@@ -169,17 +169,6 @@ fn consensus_out_of_order() {
         .assert()
         .success();
 
-    const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
-
-    // cluster files will not have the CB/UB tags, so
-    // we will only compare lines 2 and 4 of each output read
-    let cmp_cmd = format!(
-        "diff \
-        <(sort {CORRECT_FILE}) \
-        <(sort {path})"
-    );
-    // let _ = Command::new("bash").args(["-c", &cmp_cmd]).unwrap();
-
     temp.close().unwrap()
 }
 

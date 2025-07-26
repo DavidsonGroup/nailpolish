@@ -3,7 +3,6 @@
 // We also ask that you cite this software in publications
 // where you made use of it for any part of the data analysis.
 
-use std::fmt::Write as StrWrite;
 use std::io::Write as IoWrite;
 
 use anyhow::Result;
@@ -62,7 +61,7 @@ impl<W: IoWrite> OutputWriter<W> {
             self.report_progress();
         }
 
-        // Write content and flush
+        // Write content
         write!(self.writer, "{}", content)?;
 
         Ok(())

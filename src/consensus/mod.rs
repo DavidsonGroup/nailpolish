@@ -9,6 +9,7 @@ use std::fmt::Write as StrWrite;
 use std::io::{Cursor, Write as IoWrite};
 
 use anyhow::{Context as _, Result};
+use itertools::Itertools;
 use needletail::parser::{FastqReader, SequenceRecord};
 use needletail::FastxReader as _;
 use rayon::prelude::*;
@@ -24,8 +25,6 @@ use crate::io::index::{DuplicateGroup, DuplicateGroupType, FileIndexPath, IndexR
 mod cluster;
 mod formatter;
 mod output_writer;
-
-pub use output_writer::OutputWriter;
 
 type ArchivedCaptures = ArchivedVec<ArchivedOption<ArchivedString>>;
 
@@ -89,22 +88,20 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     let opts = FilterOpts::new(cli);
     let captures = index.captures();
 
-    let mut buffer = vec![];
-    let buffer_chunk_size = 512 * cli.threads; // number of groups to multithread at one time
+    let buffer_chunk_size = 1024 * cli.threads; // number of groups to multithread at one time
+    for chunk in &index.groups().chunks(buffer_chunk_size) {
+        let chunk_groups = chunk
+            .into_iter()
+            .map(|group_loc| -> Result<Vec<_>> {
+                let reads = accessor.fetch_group(&group_loc)?;
+                let groups = filter_group_locations(&group_loc, reads, &opts);
+                Ok(groups)
+            })
+            .flatten_ok()
+            .collect::<Result<Vec<_>>>()?;
 
-    for group_loc in index.groups() {
-        let reads = accessor.fetch_group(&group_loc)?;
-        let groups = filter_group_locations(&group_loc, reads, &opts);
-
-        buffer.extend(groups);
-
-        if buffer.len() >= buffer_chunk_size {
-            process_groups_parallel(&buffer, cli, captures, &mut writer)?;
-            buffer.clear();
-        }
+        process_groups_parallel(&chunk_groups, cli, captures, &mut writer)?;
     }
-
-    process_groups_parallel(&buffer, cli, captures, &mut writer)?;
 
     writer.finalize()
 }
@@ -202,7 +199,7 @@ fn process_simplex_read(
     let qual = read.qual().context("No quality")?;
 
     let result = format!(
-        "@{}\n{}\n+\n{}",
+        "@{}\n{}\n+\n{}\n",
         header,
         str::from_utf8(&seq)?,
         str::from_utf8(qual)?

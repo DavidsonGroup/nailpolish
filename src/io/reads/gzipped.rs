@@ -14,7 +14,7 @@ use indexed_deflate::GzDecoder;
 use thiserror::Error;
 
 use super::GroupedReadsAccessor;
-use crate::io::index::ReadLocation;
+use crate::io::index::{FileIndexPath, ReadLocation};
 
 #[derive(Error, Debug)]
 enum GzipReadError {
@@ -79,7 +79,8 @@ pub struct RandomAccessGzReader {
 
 impl SingleGzReadAccessor for RandomAccessGzReader {
     fn new(file: &Path) -> Result<Self> {
-        let index_path = crate::utils::get_gzip_index_path(file);
+        let file_index_path = FileIndexPath::new(file);
+        let index_path = file_index_path.gzip_index();
         
         if !index_path.exists() {
             return Err(GzipReadError::IndexNotFound {
@@ -124,7 +125,8 @@ pub struct SequentialGzReader {
 
 impl SingleGzReadAccessor for SequentialGzReader {
     fn new(file: &Path) -> Result<Self> {
-        let index_path = crate::utils::get_gzip_index_path(file);
+        let file_index_path = FileIndexPath::new(file);
+        let index_path = file_index_path.gzip_index();
         
         if !index_path.exists() {
             return Err(GzipReadError::IndexNotFound {

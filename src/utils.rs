@@ -62,10 +62,3 @@ pub(crate) fn is_gzip_file(path: &Path) -> bool {
     }
 }
 
-/// Returns the expected path for a gzip index file given the data file path
-/// e.g., /path/to/data.fastq.gz -> /path/to/data.fastq.gz.index
-pub(crate) fn get_gzip_index_path(data_path: &Path) -> std::path::PathBuf {
-    let mut p = data_path.as_os_str().to_owned();
-    p.push(".index");
-    std::path::PathBuf::from(p)
-}

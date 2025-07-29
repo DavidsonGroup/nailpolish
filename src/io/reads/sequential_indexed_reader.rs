@@ -10,6 +10,8 @@ use std::path::Path;
 use anyhow::Context;
 use indexed_deflate::{AccessPointSpan, GzIndexBuilder};
 
+use crate::io::index::FileIndexPath;
+
 /// A reader that handles both uncompressed and gzip-compressed FASTQ files
 /// during sequential indexing operations. For gzip files, it builds an index
 /// progressively as the file is read.
@@ -37,8 +39,9 @@ impl SequentialIndexedReader {
         let file = File::open(file_path)?;
         
         if crate::utils::is_gzip_file(file_path) {
-            // Create gzip index file path
-            let gz_index_path = file_path.with_extension("gzi2");
+            // Create gzip index file path using FileIndexPath
+            let file_index_path = FileIndexPath::new(file_path);
+            let gz_index_path = file_index_path.gzip_index();
             
             // Create or open the gzip index file
             let index_file = File::options()

@@ -3,6 +3,7 @@
 // We also ask that you cite this software in publications
 // where you made use of it for any part of the data analysis.
 
+pub mod gzipped;
 pub mod record;
 pub mod sequential_indexed_reader;
 pub mod uncompressed;

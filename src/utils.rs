@@ -49,3 +49,15 @@ pub(crate) fn deserialize_standard<T>(
 ) -> T {
     rkyv::deserialize::<T, rkyv::rancor::Error>(archived_val).unwrap()
 }
+
+/// Checks if a file path appears to be gzip compressed based on its extension
+pub(crate) fn is_gzip_file(path: &Path) -> bool {
+    if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+        let name_lower = file_name.to_lowercase();
+        name_lower.ends_with(".gz") || 
+        name_lower.ends_with(".fastq.gz") || 
+        name_lower.ends_with(".fq.gz")
+    } else {
+        false
+    }
+}

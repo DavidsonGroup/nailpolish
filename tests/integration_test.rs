@@ -4,55 +4,70 @@
 // where you made use of it for any part of the data analysis.
 
 use assert_cmd::Command;
-use assert_fs::prelude::*;
 use predicates::prelude::*;
+use std::path::Path;
 
 const SAMPLE_FASTQ: &str = "tests/data/scmixology2_sample.fastq";
+const SAMPLE_FASTQ_GZ: &str = "tests/data/scmixology2_sample.fastq.gz";
 
-// This is not possible, instead, the index file is now provided alongside the original file.
-// #[test]
-// fn index() {
-//     let temp = assert_fs::NamedTempFile::new("scmixology2_sample.fastq.nailpolish.idx").unwrap();
-//     let mut command = Command::cargo_bin("nailpolish").unwrap();
-//     let _ = command.args(["index", SAMPLE_FASTQ]).assert().success();
-//     // lazy way of checking that these files are the same
-//     // EXCEPT for the header, which contains unique date and runtime information
-//     let cmp_cmd = format!(
-//         "diff <(tail -n+2 tests/correct/index.tsv) <(tail -n+2 {})",
-//         temp.path().to_str().unwrap()
-//     );
-//     let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
-//     temp.close().unwrap();
-// }
+fn make_temp_dir(
+    source_path: &str,
+    input_name: &str,
+    should_index: bool,
+) -> (assert_fs::TempDir, String, String) {
+    let temp_dir = assert_fs::TempDir::new().unwrap();
+    let input_path = temp_dir
+        .path()
+        .join(input_name)
+        .to_string_lossy()
+        .to_string();
+    let output_path = temp_dir
+        .path()
+        .join("output.fastq")
+        .to_string_lossy()
+        .to_string();
+
+    // Copy source file to input path
+    std::fs::copy(source_path, &input_path).expect("Failed to copy source file");
+
+    if should_index {
+        index(&input_path);
+    }
+
+    (temp_dir, input_path, output_path)
+}
+
+fn index(file: &str) {
+    let mut command = Command::cargo_bin("nailpolish").unwrap();
+    let _ = command.args(["index", file]).assert().success();
+}
+
+fn nailpolish_bin() -> Command {
+    Command::cargo_bin("nailpolish").unwrap()
+}
 
 #[test]
 fn summary() {
-    let temp = assert_fs::NamedTempFile::new("_summary.html").unwrap();
-    let path = temp.path().to_str().unwrap();
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
 
-    let mut command = Command::cargo_bin("nailpolish").unwrap();
-
-    let _ = command
-        .args(["summary", SAMPLE_FASTQ, "-o", path])
+    let _ = nailpolish_bin()
+        .args(["summary", &input, "-o", &output])
         .assert()
         .success();
 
-    temp.assert(predicate::path::exists());
+    assert!(predicate::path::exists().eval(Path::new(&output)));
 }
 
 #[test]
 fn consensus_1t_no_clustering() {
-    let temp = assert_fs::NamedTempFile::new("consensus.fastq").unwrap();
-    let path = temp.path().to_str().unwrap();
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
 
-    let mut command = Command::cargo_bin("nailpolish").unwrap();
-
-    let _ = command
+    let _ = nailpolish_bin()
         .args([
             "consensus",
-            SAMPLE_FASTQ,
+            &input,
             "-o",
-            path,
+            &output,
             "--threads",
             "1",
             "--report-original-header",
@@ -65,24 +80,19 @@ fn consensus_1t_no_clustering() {
     // DISABLED due to bug in SPOA consensus algorithm
     // TODO: remove when bug is fixed
     // const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
-    // let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
-
-    temp.close().unwrap();
+    // let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
 }
 
 #[test]
 fn consensus_3t_no_clustering() {
-    let temp = assert_fs::NamedTempFile::new("consensus_3t.fastq").unwrap();
-    let path = temp.path().to_str().unwrap();
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
 
-    let mut command = Command::cargo_bin("nailpolish").unwrap();
-
-    let _ = command
+    let _ = nailpolish_bin()
         .args([
             "consensus",
-            SAMPLE_FASTQ,
+            &input,
             "-o",
-            path,
+            &output,
             "--threads",
             "3",
             "--report-original-header",
@@ -95,44 +105,34 @@ fn consensus_3t_no_clustering() {
     // DISABLED due to bug in SPOA consensus algorithm
     // TODO: remove when bug is fixed
     // const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
-    // let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
-
-    temp.close().unwrap();
+    // let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
 }
 
 #[test]
 fn extract_3() {
-    let temp = assert_fs::NamedTempFile::new("extract_3.fastq").unwrap();
-    let path = temp.path().to_str().unwrap();
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
 
-    let mut command = Command::cargo_bin("nailpolish").unwrap();
-
-    let _ = command
-        .args(["extract", SAMPLE_FASTQ, "-o", path, "--group-size", "3"])
+    let _ = nailpolish_bin()
+        .args(["extract", &input, "-o", &output, "--group-size", "3"])
         .assert()
         .success();
 
     const CORRECT_FILE: &str = "tests/correct/extract_3.fastq";
-    let cmp_cmd = format!("diff {} {}", temp.path().to_str().unwrap(), CORRECT_FILE);
+    let cmp_cmd = format!("diff {} {}", &output, CORRECT_FILE);
 
     let _ = Command::new("bash").arg("-c").arg(&cmp_cmd).unwrap();
-
-    temp.close().unwrap();
 }
 
 #[test]
 fn consensus_3t_with_clustering() {
-    let temp = assert_fs::NamedTempFile::new("consensus_3t.fastq").unwrap();
-    let path = temp.path().to_str().unwrap();
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
 
-    let mut command = Command::cargo_bin("nailpolish").unwrap();
-
-    let _ = command
+    let _ = nailpolish_bin()
         .args([
             "consensus",
-            SAMPLE_FASTQ,
+            &input,
             "-o",
-            path,
+            &output,
             "--threads",
             "3",
             "--report-original-header",
@@ -143,24 +143,19 @@ fn consensus_3t_with_clustering() {
 
     const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
 
-    let _ = Command::new("diff").args([path, CORRECT_FILE]).unwrap();
-
-    temp.close().unwrap();
+    let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
 }
 
 #[test]
-fn consensus_out_of_order() {
-    let temp = assert_fs::NamedTempFile::new("consensus_3t.fastq").unwrap();
-    let path = temp.path().to_str().unwrap();
+fn consensus_3t_gz_with_clustering() {
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ_GZ, "input.fastq.gz", true);
 
-    let mut command = Command::cargo_bin("nailpolish").unwrap();
-
-    let _ = command
+    let _ = nailpolish_bin()
         .args([
             "consensus",
-            SAMPLE_FASTQ,
+            &input,
             "-o",
-            path,
+            &output,
             "--threads",
             "3",
             "--report-original-header",
@@ -169,40 +164,47 @@ fn consensus_out_of_order() {
         .assert()
         .success();
 
-    temp.close().unwrap()
+    const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
+
+    let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
+}
+
+#[test]
+fn consensus_out_of_order() {
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
+
+    let _ = nailpolish_bin()
+        .args([
+            "consensus",
+            &input,
+            "-o",
+            &output,
+            "--threads",
+            "3",
+            "--report-original-header",
+            "--report-original-reads",
+        ])
+        .assert()
+        .success();
 }
 
 #[test]
 fn consensus_with_cluster_file() {
-    use std::fs;
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", false);
 
-    // Create temporary FASTQ file copy so we can create our own index
-    let temp_fastq = assert_fs::NamedTempFile::new("temp_sample.fastq").unwrap();
-    fs::copy(SAMPLE_FASTQ, temp_fastq.path()).unwrap();
-
-    let temp_consensus = assert_fs::NamedTempFile::new("consensus_cluster.fastq").unwrap();
-    let path = temp_consensus.path().to_str().unwrap();
-
-    // First, create index using cluster file
-    let mut index_command = Command::cargo_bin("nailpolish").unwrap();
-    index_command
-        .args([
-            "index",
-            temp_fastq.path().to_str().unwrap(),
-            "--clusters",
-            "tests/data/clusters.txt",
-        ])
+    // Create index using cluster file
+    let _ = nailpolish_bin()
+        .args(["index", &input, "--clusters", "tests/data/clusters.txt"])
         .assert()
         .success();
 
-    // Then run consensus
-    let mut consensus_command = Command::cargo_bin("nailpolish").unwrap();
-    consensus_command
+    // Run consensus
+    let _ = nailpolish_bin()
         .args([
             "consensus",
-            temp_fastq.path().to_str().unwrap(),
+            &input,
             "-o",
-            path,
+            &output,
             "--threads",
             "3",
             "--report-original-header",
@@ -218,10 +220,7 @@ fn consensus_with_cluster_file() {
     let cmp_cmd = format!(
         "diff \
         <(awk 'NR % 4 == 2 || NR % 4 == 0' {CORRECT_FILE} | sort) \
-        <(awk 'NR % 4 == 2 || NR % 4 == 0' {path} | sort)"
+        <(awk 'NR % 4 == 2 || NR % 4 == 0' {output} | sort)"
     );
     let _ = Command::new("bash").args(["-c", &cmp_cmd]).unwrap();
-
-    temp_fastq.close().unwrap();
-    temp_consensus.close().unwrap();
 }

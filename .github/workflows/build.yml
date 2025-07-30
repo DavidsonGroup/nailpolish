@@ -31,8 +31,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-test-
 
-      - name: "Run scripts/setup.sh"
-        run: scripts/setup.sh
+      - name: "Run tests/setup.sh"
+        run: tests/setup.sh
       
       - name: Test
         uses: houseabsolute/actions-rust-cross@v0

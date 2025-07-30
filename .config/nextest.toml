@@ -1,7 +1,7 @@
 experimental = ["setup-scripts"]
 
 [scripts.setup.decompress-test-data]
-command = "scripts/setup.sh"
+command = "tests/setup.sh"
 
 # match all tests in the project
 [[profile.default.overrides]]

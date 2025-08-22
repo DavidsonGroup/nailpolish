@@ -21,7 +21,6 @@ use rkyv::{
     Serialize,
 };
 use smallvec::{smallvec, SmallVec};
-use thiserror::Error;
 
 use crate::io::index::record_identifier::ArchivedRecordIdentifier;
 use crate::io::reads::gzipped::GzippedFileReader;
@@ -78,15 +77,6 @@ pub struct DuplicateGroup {
 pub enum DuplicateGroupType {
     Valid,
     Filtered,
-}
-
-/// Errors that can occur during index operations
-#[derive(Error, Debug)]
-pub enum IndexError {
-    #[error(
-        "Unknown capture group tag: '{0}'. Available tags can be found in the index metadata."
-    )]
-    UnknownTag(String),
 }
 
 /// Represents an index structure for managing duplicate groups and their associated metadata.
@@ -269,9 +259,10 @@ impl ArchivedIndex {
     }
 
     pub fn indices_by_sorted_tag(&self, tag: &str) -> Result<Vec<usize>> {
-        let tag_idx = self
-            .capture_index(tag)
-            .ok_or_else(|| IndexError::UnknownTag(tag.to_owned()))?;
+        let tag_idx = self.capture_index(tag).with_context(|| {
+            let captures: Vec<_> = self.captures().iter().flatten().collect();
+            format!("Unknown sort tag {tag}. Available tags: {captures:?}")
+        })?;
 
         // "The key-value pairs are indexed in a compact range without holes in the range 0..self.len()"
         // - https://docs.rs/indexmap/latest/indexmap/map/struct.IndexMap.html

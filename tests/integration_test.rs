@@ -147,6 +147,37 @@ fn consensus_3t_with_clustering() {
 }
 
 #[test]
+fn consensus_sorted() {
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
+
+    let _ = nailpolish_bin()
+        .args([
+            "consensus",
+            &input,
+            "-o",
+            &output,
+            "--threads",
+            "3",
+            "--sort-by",
+            "CB",
+            "--report-original-header",
+            "--report-original-reads",
+        ])
+        .assert()
+        .success();
+
+    const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
+
+    // we just look at the headers to see if they match up
+    let cmp_cmd = format!(
+        "diff \
+        <(awk 'NR % 4 == 1' {CORRECT_FILE} | sort) \
+        <(awk 'NR % 4 == 1' {output} | sort)"
+    );
+    let _ = Command::new("bash").args(["-c", &cmp_cmd]).unwrap();
+}
+
+#[test]
 fn consensus_3t_gz_with_clustering() {
     let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ_GZ, "input.fastq.gz", true);
 

@@ -89,7 +89,13 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     let captures = index.captures();
 
     let buffer_chunk_size = 1024 * cli.threads; // number of groups to multithread at one time
-    for chunk in &index.groups().chunks(buffer_chunk_size) {
+
+    let indices = match &cli.sort_by {
+        Some(tag) => index.indices_by_sorted_tag(tag)?,
+        None => index.indices_by_default_order(),
+    };
+
+    for chunk in &index.groups_by_index(&indices).chunks(buffer_chunk_size) {
         let chunk_groups = chunk
             .into_iter()
             .map(|group_loc| -> Result<Vec<_>> {

@@ -9,6 +9,7 @@
 
 # testing files
 /tests/samples/local
+/tests/data/scmixology2_sample.fastq
 
 Cargo.lock
 **/*.rs.bk

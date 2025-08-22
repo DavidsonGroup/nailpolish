@@ -18,7 +18,7 @@ use regex::Regex;
 use thiserror::Error;
 
 use super::{storage::FileIndexPath, Index, ReadLocation, RecordIdentifier};
-use crate::io::reads::QualityCompute;
+use crate::io::reads::{QualityCompute, SequentialIndexedReader};
 
 /// Constructs an index file for a FASTQ file, extracting barcodes and UMIs
 /// from read headers using either a regex pattern or a cluster file
@@ -43,8 +43,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
 
     let total_bytes = metadata.len();
 
-    let mut reader = BufReader::new(f);
-
+    let mut reader = SequentialIndexedReader::from_path(path.fastq())?;
     let mut index = Index::new(path);
 
     let size_formatter = FormatSizeOptions::from(humansize::BINARY)
@@ -116,7 +115,12 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
         format_size(total_bytes, size_formatter)
     );
 
-    index.mark_indexation_complete(reader.stream_position()? as f64 / (1024.0 * 1024.0))?;
+    let final_position = reader.stream_position()? as f64 / (1024.0 * 1024.0);
+
+    // finalise the gzip index, if the source file is a .gzip file
+    reader.finish_gzip_index()?;
+
+    index.mark_indexation_complete(final_position)?;
     index.metadata().report_read_counts();
 
     index.write()?;
@@ -126,7 +130,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
 
 /// Process FASTQ reads using a regex to extract identifiers from headers
 fn iter_lines_with_regex<F>(
-    reader: &mut BufReader<File>,
+    reader: &mut SequentialIndexedReader,
     re: &regex::Regex,
     mut callback: F,
 ) -> Result<()>
@@ -169,7 +173,7 @@ where
 }
 
 fn iter_lines_with_cluster_file<F>(
-    reader: &mut BufReader<File>,
+    reader: &mut SequentialIndexedReader,
     cluster_file: &Path,
     mut callback: F,
 ) -> Result<()>

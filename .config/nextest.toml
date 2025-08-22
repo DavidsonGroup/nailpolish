@@ -1,4 +1,13 @@
+experimental = ["setup-scripts"]
+
+[scripts.setup.decompress-test-data]
+command = "tests/setup.sh"
+
 # match all tests in the project
 [[profile.default.overrides]]
 filter = "test(/.*/)"
 threads-required = 4
+
+[[profile.default.scripts]]
+filter = "test(/.*/)"
+setup = "decompress-test-data"

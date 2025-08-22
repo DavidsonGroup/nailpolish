@@ -21,6 +21,7 @@ use rkyv::{
 use smallvec::{smallvec, SmallVec};
 
 use crate::io::index::record_identifier::ArchivedRecordIdentifier;
+use crate::io::reads::gzipped::GzippedFileReader;
 use crate::io::reads::uncompressed::UncompressedFileReader;
 use crate::io::reads::GroupedReadsAccessor;
 use crate::utils::deserialize_standard;
@@ -203,12 +204,13 @@ impl ArchivedIndex {
         &self,
         index_path: &FileIndexPath,
     ) -> Result<Box<dyn GroupedReadsAccessor>> {
-        // for now, all reads are uncompressed
-        let is_zlib_compressed = false;
-        if is_zlib_compressed {
-            todo!()
+        let fastq_path = index_path.fastq();
+        
+        if crate::utils::is_gzip_file(fastq_path) {
+            let reader = GzippedFileReader::new(fastq_path)
+                .with_context(|| format!("Error reading gzipped read file {}", fastq_path.display()))?;
+            Ok(Box::new(reader))
         } else {
-            let fastq_path = index_path.fastq();
             let reader = UncompressedFileReader::new(fastq_path)
                 .with_context(|| format!("Error reading read file {}", fastq_path.display()))?;
             Ok(Box::new(reader))

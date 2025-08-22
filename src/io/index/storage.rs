@@ -87,6 +87,12 @@ impl FileIndexPath {
         &self.index
     }
 
+    /// Returns the path for the gzip index file (.gzi2)
+    /// e.g., /path/to/data.fastq.gz -> /path/to/data.gzi2
+    pub fn gzip_index(&self) -> PathBuf {
+        self.path.with_extension("gzi2")
+    }
+
     pub fn check_indexed(&self) -> Result<()> {
         if self.index().exists() {
             Ok(())

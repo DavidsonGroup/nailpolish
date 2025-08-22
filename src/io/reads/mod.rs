@@ -3,7 +3,9 @@
 // We also ask that you cite this software in publications
 // where you made use of it for any part of the data analysis.
 
+pub mod gzipped;
 pub mod record;
+pub mod sequential_indexed_reader;
 pub mod uncompressed;
 
 use anyhow::Result;
@@ -11,6 +13,7 @@ use anyhow::Result;
 use crate::io::index::{DuplicateGroupLocation, ReadLocation};
 
 pub use record::QualityCompute;
+pub use sequential_indexed_reader::SequentialIndexedReader;
 
 pub trait GroupedReadsAccessor {
     fn new(file: &std::path::Path) -> Result<Self>

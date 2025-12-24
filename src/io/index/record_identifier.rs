@@ -5,6 +5,7 @@
 
 use std::fmt;
 
+use anyhow::{Context, Result};
 use rkyv::{Archive, Deserialize, Serialize};
 
 /// A RecordIdentifier is a store of the BC/UMI identifier of a read.
@@ -22,6 +23,24 @@ impl RecordIdentifier {
 
     pub fn components(&self) -> std::str::Split<'_, char> {
         self.0.split('\0')
+    }
+
+    /// Return the N-th component, if present
+    pub fn component(&self, idx: usize) -> Option<&str> {
+        self.components().nth(idx)
+    }
+}
+
+impl ArchivedRecordIdentifier {
+    pub fn components(&self) -> std::str::Split<'_, char> {
+        self.0.split('\0')
+    }
+
+    /// Return the N-th component, if present
+    pub fn component(&self, idx: usize) -> Result<&str> {
+        self.components()
+            .nth(idx)
+            .context("Component does not exist")
     }
 }
 

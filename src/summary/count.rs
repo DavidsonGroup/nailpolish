@@ -45,7 +45,7 @@ pub fn summarize_index(index: &ArchivedIndex) -> IndexStatistics {
     debug!("Creating count index...");
     let mut map = BTreeMap::new();
 
-    for group in index.groups() {
+    for group in index.groups_by_index(&index.indices_by_default_order()) {
         let count = group.reads.len();
 
         let entry = map.entry(count).or_insert(RowData::new());

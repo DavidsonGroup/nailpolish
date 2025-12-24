@@ -10,6 +10,7 @@
 # testing files
 /tests/samples/local
 /tests/data/scmixology2_sample.fastq
+/tests/data/scmixology2_sample.fastq.nailpolish.idx
 
 Cargo.lock
 **/*.rs.bk

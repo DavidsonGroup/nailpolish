@@ -41,7 +41,7 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
         let re = regex::Regex::new(key)?;
 
         index
-            .groups()
+            .groups_by_index(&index.indices_by_default_order())
             .filter_map(|group| {
                 if re.is_match(&group.key.0) {
                     return Some(group.id);
@@ -51,7 +51,7 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
             .collect()
     } else if let Some(group_size) = &args.group_size {
         index
-            .groups()
+            .groups_by_index(&index.indices_by_default_order())
             .filter_map(|group| {
                 if group.reads.len() == *group_size {
                     Some(group.id)

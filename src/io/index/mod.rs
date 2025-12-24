@@ -13,7 +13,9 @@ use std::time::SystemTimeError;
 
 use anyhow::{Context, Result};
 use indexmap::IndexMap;
+use itertools::Itertools;
 use needletail::parser::SequenceRecord;
+use rayon::slice::ParallelSliceMut;
 use rkyv::{
     option::ArchivedOption, string::ArchivedString, vec::ArchivedVec, Archive, Deserialize,
     Serialize,
@@ -178,18 +180,6 @@ impl Index {
 }
 
 impl ArchivedIndex {
-    /// Returns an iterator over the duplicate groups in the index.
-    pub fn groups(&self) -> impl Iterator<Item = DuplicateGroupLocation> + use<'_> {
-        self.groups
-            .iter()
-            .enumerate()
-            .map(|(index, (key, value))| DuplicateGroupLocation {
-                key: deserialize_standard(key),
-                reads: deserialize_standard(value),
-                id: index,
-            })
-    }
-
     pub fn get_hashmap(
         &self,
     ) -> &rkyv::collections::swiss_table::ArchivedIndexMap<
@@ -205,10 +195,11 @@ impl ArchivedIndex {
         index_path: &FileIndexPath,
     ) -> Result<Box<dyn GroupedReadsAccessor>> {
         let fastq_path = index_path.fastq();
-        
+
         if crate::utils::is_gzip_file(fastq_path) {
-            let reader = GzippedFileReader::new(fastq_path)
-                .with_context(|| format!("Error reading gzipped read file {}", fastq_path.display()))?;
+            let reader = GzippedFileReader::new(fastq_path).with_context(|| {
+                format!("Error reading gzipped read file {}", fastq_path.display())
+            })?;
             Ok(Box::new(reader))
         } else {
             let reader = UncompressedFileReader::new(fastq_path)
@@ -235,5 +226,57 @@ impl ArchivedIndex {
 
     pub fn captures(&self) -> &ArchivedVec<ArchivedOption<ArchivedString>> {
         &self.captures
+    }
+
+    /// Find the position of a capture group in the identifier string
+    pub fn capture_index(&self, tag: &str) -> Option<usize> {
+        self.captures().iter().position(|name| {
+            if let Some(archived_name) = name.as_ref() {
+                archived_name.as_str() == tag
+            } else {
+                false
+            }
+        })
+    }
+
+    pub fn groups_by_index<'a>(
+        &'a self,
+        indices: &'a [usize],
+    ) -> impl Iterator<Item = DuplicateGroupLocation> + 'a {
+        indices.iter().map(|index| {
+            let index = *index;
+            let (key, value) = self.groups.get_index(index).unwrap();
+            DuplicateGroupLocation {
+                key: deserialize_standard(key),
+                reads: deserialize_standard(value),
+                id: index,
+            }
+        })
+    }
+
+    pub fn indices_by_default_order(&self) -> Vec<usize> {
+        (0..self.groups.len()).collect()
+    }
+
+    pub fn indices_by_sorted_tag(&self, tag: &str) -> Result<Vec<usize>> {
+        let tag_idx = self.capture_index(tag).with_context(|| {
+            let captures: Vec<_> = self.captures().iter().flatten().collect();
+            format!("Unknown sort tag {tag}. Available tags: {captures:?}")
+        })?;
+
+        // "The key-value pairs are indexed in a compact range without holes in the range 0..self.len()"
+        // - https://docs.rs/indexmap/latest/indexmap/map/struct.IndexMap.html
+        // As a result, we can get the index and key using enumerate.
+        // v.0 is index, v.1 is sort component
+        let mut keys: Vec<_> = self
+            .groups
+            .keys()
+            .enumerate()
+            .map(|(i, key)| key.component(tag_idx).map(|c| (i, c)))
+            .try_collect()?;
+
+        keys.par_sort_by_key(|v| v.1);
+
+        Ok(keys.into_iter().map(|v| v.0).collect())
     }
 }

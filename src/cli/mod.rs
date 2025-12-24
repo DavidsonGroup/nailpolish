@@ -178,6 +178,10 @@ pub struct ConsensusArgs {
     /// on runtime.
     #[arg(long, default_value_t = 250)]
     pub max_group_size: usize,
+
+    /// sort groups by the specified capture group tag (e.g., 'CB' for cell barcode)
+    #[arg(long)]
+    pub sort_by: Option<String>,
 }
 
 /// Extract reads beloning to specific group queries a .fastq file, unmodified.

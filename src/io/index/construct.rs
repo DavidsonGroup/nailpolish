@@ -55,7 +55,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
     const REPORT_INTERVAL: u64 = 2 * 1024 * 1024 * 1024; // 2GB
     let mut last_report = 0;
 
-    if let Some(cluster_file) = &cli.clusters {
+    let skipped = if let Some(cluster_file) = &cli.clusters {
         // callback function to process each read that comes in & add to the index
         let callback = |loc: ReadLocation, key: RecordIdentifier, seq: SequenceRecord| {
             let pos = loc.pos();
@@ -75,7 +75,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
             Ok(())
         };
 
-        iter_lines_with_cluster_file(&mut reader, cluster_file, callback)?;
+        iter_lines_with_cluster_file(&mut reader, cluster_file, cli.skip_unmatched, callback)?
     } else {
         let re = match &cli.barcode_regex {
             Some(v) => {
@@ -106,7 +106,11 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
             Ok(())
         };
 
-        iter_lines_with_regex(&mut reader, &re, callback)?
+        iter_lines_with_regex(&mut reader, &re, cli.skip_unmatched, callback)?
+    };
+
+    if skipped > 0 {
+        eprintln!("{skipped} reads were skipped (not matched/found in cluster file)");
     }
 
     info!(
@@ -132,13 +136,15 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
 fn iter_lines_with_regex<F>(
     reader: &mut SequentialIndexedReader,
     re: &regex::Regex,
+    skip_unmatched: bool,
     mut callback: F,
-) -> Result<()>
+) -> Result<usize>
 where
     F: FnMut(ReadLocation, RecordIdentifier, SequenceRecord) -> Result<()>,
 {
     // expected_len is used to ensure that every read has the same format
     let mut expected_len: Option<usize> = None;
+    let mut skipped: usize = 0;
 
     let mut fastq_reader = needletail::parser::FastqReader::new(reader);
 
@@ -153,7 +159,18 @@ where
         };
         let header = std::str::from_utf8(rec.id())?;
 
-        let (len, id) = extract_header_id(header, re, read_location.pos())?;
+        // CN: skip-unmatched; None means no regex match; DifferentMatchCounts is never skipped
+        let Some((len, id)) = extract_header_id(header, re)? else {
+            if skip_unmatched {
+                skipped += 1;
+                continue;
+            }
+            bail!(IndexGenerationErr::NoMatch {
+                header: header.trim().to_string(),
+                re: re.clone(),
+                pos: read_location.pos(),
+            })
+        };
 
         // check # of barcode groups is the same
         let expected_len = *expected_len.get_or_insert(len);
@@ -169,14 +186,15 @@ where
 
         callback(read_location, id, rec)?;
     }
-    Ok(())
+    Ok(skipped)
 }
 
 fn iter_lines_with_cluster_file<F>(
     reader: &mut SequentialIndexedReader,
     cluster_file: &Path,
+    skip_unmatched: bool,
     mut callback: F,
-) -> Result<()>
+) -> Result<usize>
 where
     F: FnMut(ReadLocation, RecordIdentifier, SequenceRecord) -> Result<()>,
 {
@@ -212,6 +230,7 @@ where
     );
 
     let mut fastq_reader = needletail::parser::FastqReader::new(reader);
+    let mut skipped: usize = 0;
 
     while let Some(rec) = fastq_reader.next() {
         let rec = rec.expect("Invalid record");
@@ -225,7 +244,12 @@ where
 
         let header = std::str::from_utf8(rec.id())?;
 
+        // CN: skip-unmatched; honour --skip-unmatched by counting rather than bailing
         let Some(id) = cluster_map.get(header) else {
+            if skip_unmatched {
+                skipped += 1;
+                continue;
+            }
             bail!(IndexGenerationErr::RowNotInClusters {
                 header: header.to_string()
             })
@@ -235,18 +259,14 @@ where
         callback(read_location, id, rec)?;
     }
 
-    Ok(())
+    Ok(skipped)
 }
 
-/// Extract identifier components from a read header using a regex pattern
-/// Returns the number of captures and the constructed identifier
-fn extract_header_id(header: &str, re: &Regex, pos: u64) -> Result<(usize, RecordIdentifier)> {
+/// Extract identifier components from a read header using a regex pattern.
+/// Returns `Ok(None)` when the header doesn't match; the caller decides whether to skip or bail.
+fn extract_header_id(header: &str, re: &Regex) -> Result<Option<(usize, RecordIdentifier)>> {
     let Some(captures) = re.captures(header) else {
-        bail!(IndexGenerationErr::NoMatch {
-            header: String::from(header.trim()),
-            re: re.clone(),
-            pos
-        });
+        return Ok(None);
     };
 
     let captures = captures
@@ -256,7 +276,7 @@ fn extract_header_id(header: &str, re: &Regex, pos: u64) -> Result<(usize, Recor
         .map(|m| m.as_str())
         .collect::<Vec<_>>();
 
-    Ok((captures.len(), RecordIdentifier::from_recs(&captures)))
+    Ok(Some((captures.len(), RecordIdentifier::from_recs(&captures))))
 }
 
 /// Errors that can occur during index generation

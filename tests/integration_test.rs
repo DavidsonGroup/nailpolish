@@ -9,6 +9,7 @@ use std::path::Path;
 
 const SAMPLE_FASTQ: &str = "tests/data/scmixology2_sample.fastq";
 const SAMPLE_FASTQ_GZ: &str = "tests/data/scmixology2_sample.fastq.gz";
+const PARTIAL_CLUSTERS: &str = "tests/data/partial_clusters.txt";
 
 fn make_temp_dir(
     source_path: &str,
@@ -215,6 +216,26 @@ fn consensus_out_of_order() {
             "--report-original-header",
             "--report-original-reads",
         ])
+        .assert()
+        .success();
+}
+
+#[test]
+fn index_cluster_file_skip_unmatched_errors_without_flag() {
+    let (_temp_dir, input, _) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", false);
+
+    nailpolish_bin()
+        .args(["index", &input, "--clusters", PARTIAL_CLUSTERS])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn index_cluster_file_skip_unmatched_succeeds_with_flag() {
+    let (_temp_dir, input, _) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", false);
+
+    nailpolish_bin()
+        .args(["index", &input, "--clusters", PARTIAL_CLUSTERS, "--skip-unmatched"])
         .assert()
         .success();
 }

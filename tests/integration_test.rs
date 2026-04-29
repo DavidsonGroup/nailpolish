@@ -235,7 +235,13 @@ fn index_cluster_file_skip_unmatched_succeeds_with_flag() {
     let (_temp_dir, input, _) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", false);
 
     nailpolish_bin()
-        .args(["index", &input, "--clusters", PARTIAL_CLUSTERS, "--skip-unmatched"])
+        .args([
+            "index",
+            &input,
+            "--clusters",
+            PARTIAL_CLUSTERS,
+            "--skip-unmatched",
+        ])
         .assert()
         .success();
 }
@@ -274,5 +280,6 @@ fn consensus_with_cluster_file() {
         <(awk 'NR % 4 == 2 || NR % 4 == 0' {CORRECT_FILE} | sort) \
         <(awk 'NR % 4 == 2 || NR % 4 == 0' {output} | sort)"
     );
-    let _ = Command::new("bash").args(["-c", &cmp_cmd]).unwrap();
+    // let _ = Command::new("bash").args(["-c", &cmp_cmd]).unwrap();
+    let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
 }

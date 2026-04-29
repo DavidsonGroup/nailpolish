@@ -115,13 +115,22 @@ impl Index {
     }
 
     /// Add regular expression capture groups
-    pub fn add_capture_groups(&mut self, re: &regex::Regex) {
+    pub fn add_captures_from_regex(&mut self, re: &regex::Regex) {
         let names = re
             .capture_names() // get capture names
             .skip(1); // we skip over the first result, since this is the entire capture group
 
         self.captures = names
             .map(|v| v.map(str::to_string)) // convert all Some(&str) to Some(String)
+            .collect()
+    }
+
+    /// Add cluster file header groups
+    pub fn add_captures_from_csv_headers(&mut self, headers: &csv::StringRecord) {
+        self.captures = headers
+            .iter()
+            .skip(1)
+            .map(|v| Some(v.to_string()))
             .collect()
     }
 

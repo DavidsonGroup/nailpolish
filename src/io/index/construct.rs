@@ -4,15 +4,11 @@
 // where you made use of it for any part of the data analysis.
 
 /// Index construction and read identifier parsing
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{BufRead, BufReader, Seek},
-    path::Path,
-};
+use std::{collections::HashMap, fs::File, io::Seek};
 
 use anyhow::{bail, Result};
 use humansize::{format_size, FormatSizeOptions};
+use itertools::Itertools;
 use needletail::{parser::SequenceRecord, FastxReader};
 use regex::Regex;
 use thiserror::Error;
@@ -56,27 +52,35 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
     let mut last_report = 0;
 
     let skipped = if let Some(cluster_file) = &cli.clusters {
+        // Read cluster file line by line
+        info!("Reading identifiers from file {}", cluster_file.display());
+
+        // create cluster reader
+        let mut rdr = csv::ReaderBuilder::new()
+            .has_headers(true)
+            .delimiter(b';')
+            .from_path(cluster_file)?;
+
+        index.add_captures_from_csv_headers(rdr.headers()?);
+
         // callback function to process each read that comes in & add to the index
         let callback = |loc: ReadLocation, key: RecordIdentifier, seq: SequenceRecord| {
             let pos = loc.pos();
 
-            // should we report our current progress?
             if pos - last_report > REPORT_INTERVAL {
                 last_report = pos;
-
-                info!(
-                    "proc: {} / {}",
-                    format_size(pos, size_formatter),
-                    format_size(total_bytes, size_formatter)
-                );
+                #[rustfmt::skip]
+                info!("proc: {} / {}", format_size(pos, size_formatter), format_size(total_bytes, size_formatter));
             }
 
             index.add_read(key, loc, seq);
             Ok(())
         };
 
-        iter_lines_with_cluster_file(&mut reader, cluster_file, cli.skip_unmatched, callback)?
+        // iterate over reads and call fn callback()
+        iter_lines_with_cluster_file(&mut reader, rdr, cli.skip_unmatched, callback)?
     } else {
+        // Determine if manual regex or preset should be used
         let re = match &cli.barcode_regex {
             Some(v) => {
                 info!("Using barcode format {v}");
@@ -85,27 +89,23 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
             None => cli.preset.to_regex(),
         }?;
 
-        index.add_capture_groups(&re);
+        index.add_captures_from_regex(&re);
 
         // callback function to process each read that comes in & add to the index
         let callback = |loc: ReadLocation, key: RecordIdentifier, seq: SequenceRecord| {
             let pos = loc.pos();
 
-            // should we report our current progress?
             if pos - last_report > REPORT_INTERVAL {
                 last_report = pos;
-
-                info!(
-                    "proc: {} / {}",
-                    format_size(pos, size_formatter),
-                    format_size(total_bytes, size_formatter)
-                );
+                #[rustfmt::skip]
+                info!("proc: {} / {}", format_size(pos, size_formatter), format_size(total_bytes, size_formatter));
             }
 
             index.add_read(key, loc, seq);
             Ok(())
         };
 
+        // iterate over reads and call fn callback()
         iter_lines_with_regex(&mut reader, &re, cli.skip_unmatched, callback)?
     };
 
@@ -189,38 +189,24 @@ where
     Ok(skipped)
 }
 
-fn iter_lines_with_cluster_file<F>(
+fn iter_lines_with_cluster_file<F, R>(
     reader: &mut SequentialIndexedReader,
-    cluster_file: &Path,
+    mut rdr: csv::Reader<R>,
     skip_unmatched: bool,
     mut callback: F,
 ) -> Result<usize>
 where
     F: FnMut(ReadLocation, RecordIdentifier, SequenceRecord) -> Result<()>,
+    R: std::io::Read,
 {
-    // Read cluster file line by line
-    info!("Reading identifiers from file {}", cluster_file.display());
-
-    let cluster_f = File::open(cluster_file)?;
-    let cluster_reader = BufReader::new(cluster_f);
     let mut cluster_map = HashMap::new();
 
-    for line in cluster_reader.lines() {
-        let line = line?;
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
+    for result in rdr.records() {
+        let record = result?;
 
-        let parts: Vec<&str> = line.split(';').collect();
-        if parts.len() != 2 {
-            bail!(IndexGenerationErr::InvalidClusterRow {
-                row: line.to_string()
-            });
-        }
+        let read_id = record[0].to_string();
+        let identifier = RecordIdentifier::from_recs(&record.iter().skip(1).collect_vec());
 
-        let read_id = parts[0].to_string();
-        let identifier = RecordIdentifier::from_recs(&[parts[1]]);
         cluster_map.insert(read_id, identifier);
     }
 
@@ -276,7 +262,10 @@ fn extract_header_id(header: &str, re: &Regex) -> Result<Option<(usize, RecordId
         .map(|m| m.as_str())
         .collect::<Vec<_>>();
 
-    Ok(Some((captures.len(), RecordIdentifier::from_recs(&captures))))
+    Ok(Some((
+        captures.len(),
+        RecordIdentifier::from_recs(&captures),
+    )))
 }
 
 /// Errors that can occur during index generation
@@ -307,15 +296,6 @@ using capture group
         count: usize,
         expected: usize,
     },
-
-    #[error(
-        "invalid cluster row: should be of the format
-  `READ_ID;BC;UMI`
-or
-  `READ_ID;BC`, but instead got
-{row}"
-    )]
-    InvalidClusterRow { row: String },
 
     #[error("Row {header} of input file not present in cluster file")]
     RowNotInClusters { header: String },

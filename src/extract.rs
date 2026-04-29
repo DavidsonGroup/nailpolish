@@ -10,7 +10,7 @@ use needletail::{parser::FastqReader, FastxReader};
 
 use crate::{
     cli::preset::PresetOutputFormats,
-    io::index::{FileIndexPath, IndexReader},
+    io::index::{FileIndexPath, IndexReader, ReadLocation},
 };
 
 pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
@@ -38,7 +38,8 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
             .collect::<Result<Vec<usize>, std::num::ParseIntError>>()
             .context("Invalid ID string")?
     } else if let Some(key) = &args.key {
-        let re = regex::Regex::new(key)?;
+        // allow user to input BC;UMI
+        let re = regex::Regex::new(&key.replace(";", "\0"))?;
 
         index
             .groups_by_index(&index.indices_by_default_order())
@@ -64,6 +65,30 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
         anyhow::bail!("No key or ID is passed")
     };
 
+    let allowed_read_nums: Option<std::collections::HashSet<usize>> =
+        if let Some(s) = &args.read_nums {
+            Some(
+                s.split(',')
+                    .map(|s| s.trim().parse::<usize>())
+                    .collect::<Result<_, std::num::ParseIntError>>()
+                    .context("Invalid read-nums string")?,
+            )
+        } else {
+            None
+        };
+
+    let filter_reads = |reads: &[ReadLocation]| -> Vec<ReadLocation> {
+        match &allowed_read_nums {
+            Some(nums) => reads
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| nums.contains(&(i + 1)))
+                .map(|(_, r)| r.clone())
+                .collect(),
+            None => reads.to_vec(),
+        }
+    };
+
     let allowed_groups = allowed_ids.iter().map(|id| index.get_by_id(*id));
 
     let mut accessor = index
@@ -72,18 +97,17 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
 
     let mut writer = crate::utils::get_writer(args.output.as_deref())?;
 
-    println!("Test");
     if args.format == PresetOutputFormats::Fastq {
         for group in allowed_groups {
             let group = group.context("Group does not exist")?;
-            let reads_u8 = accessor.fetch_reads(&group.reads)?.concat();
+            let reads_u8 = accessor.fetch_reads(&filter_reads(&group.reads))?.concat();
 
             writer.write_all(&reads_u8)?;
         }
     } else if args.format == PresetOutputFormats::Fasta {
         for group in allowed_groups {
             let group = group.context("Group does not exist")?;
-            let reads_u8 = accessor.fetch_reads(&group.reads)?.concat();
+            let reads_u8 = accessor.fetch_reads(&filter_reads(&group.reads))?.concat();
 
             let mut reader = FastqReader::new(Cursor::new(reads_u8));
             while let Some(read) = reader.next() {

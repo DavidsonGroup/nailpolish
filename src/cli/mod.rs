@@ -206,6 +206,10 @@ pub struct ExtractArgs {
     #[arg(long, conflicts_with_all = ["id", "key"])]
     pub group_size: Option<usize>,
 
+    /// Choose subset reads of index (comma-separated)
+    #[arg(long)]
+    pub read_nums: Option<String>,
+
     /// Output format type
     #[arg(long, default_value = "fastq")]
     pub format: preset::PresetOutputFormats,

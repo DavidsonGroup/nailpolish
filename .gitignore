@@ -11,6 +11,7 @@
 /tests/samples/local
 /tests/data/scmixology2_sample.fastq
 /tests/data/scmixology2_sample.fastq.nailpolish.idx
+/tests/.tmp*
 
 Cargo.lock
 **/*.rs.bk

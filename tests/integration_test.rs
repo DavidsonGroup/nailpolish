@@ -3,7 +3,16 @@
 // We also ask that you cite this software in publications
 // where you made use of it for any part of the data analysis.
 
+// HOW TO USE THESE TESTS:
+// To run tests:
+//   $ cargo nextest r
+// To run a specific test:
+//   $ cargo nextest r <test_name>
+// To persist the results of tests:
+//   $ TEST_PERSIST_FILES=1 cargo nextest r <test_name>
+
 use assert_cmd::Command;
+use assert_fs::fixture::TempDir;
 use predicates::prelude::*;
 use std::path::Path;
 
@@ -14,9 +23,12 @@ const PARTIAL_CLUSTERS: &str = "tests/data/partial_clusters.txt";
 fn make_temp_dir(
     source_path: &str,
     input_name: &str,
+    output_name: Option<&str>,
     should_index: bool,
 ) -> (assert_fs::TempDir, String, String) {
-    let temp_dir = assert_fs::TempDir::new().unwrap();
+    let temp_dir = TempDir::new_in("tests/")
+        .unwrap()
+        .into_persistent_if(std::env::var_os("TEST_PERSIST_FILES").is_some());
     let input_path = temp_dir
         .path()
         .join(input_name)
@@ -24,7 +36,7 @@ fn make_temp_dir(
         .to_string();
     let output_path = temp_dir
         .path()
-        .join("output.fastq")
+        .join(output_name.unwrap_or("output.fastq"))
         .to_string_lossy()
         .to_string();
 
@@ -49,7 +61,8 @@ fn nailpolish_bin() -> Command {
 
 #[test]
 fn summary() {
-    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
+    let (_temp_dir, input, output) =
+        make_temp_dir(SAMPLE_FASTQ, "input.fastq", Some("summary.html"), true);
 
     let _ = nailpolish_bin()
         .args(["summary", &input, "-o", &output])
@@ -61,7 +74,7 @@ fn summary() {
 
 #[test]
 fn consensus_1t_no_clustering() {
-    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", None, true);
 
     let _ = nailpolish_bin()
         .args([
@@ -86,7 +99,7 @@ fn consensus_1t_no_clustering() {
 
 #[test]
 fn consensus_3t_no_clustering() {
-    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", None, true);
 
     let _ = nailpolish_bin()
         .args([
@@ -111,7 +124,7 @@ fn consensus_3t_no_clustering() {
 
 #[test]
 fn extract_3() {
-    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", None, true);
 
     let _ = nailpolish_bin()
         .args(["extract", &input, "-o", &output, "--group-size", "3"])
@@ -126,7 +139,7 @@ fn extract_3() {
 
 #[test]
 fn consensus_3t_with_clustering() {
-    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", None, true);
 
     let _ = nailpolish_bin()
         .args([
@@ -149,7 +162,7 @@ fn consensus_3t_with_clustering() {
 
 #[test]
 fn consensus_sorted() {
-    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", None, true);
 
     let _ = nailpolish_bin()
         .args([
@@ -180,7 +193,7 @@ fn consensus_sorted() {
 
 #[test]
 fn consensus_3t_gz_with_clustering() {
-    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ_GZ, "input.fastq.gz", true);
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ_GZ, "input.fastq.gz", None, true);
 
     let _ = nailpolish_bin()
         .args([
@@ -203,7 +216,7 @@ fn consensus_3t_gz_with_clustering() {
 
 #[test]
 fn consensus_out_of_order() {
-    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", true);
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", None, true);
 
     let _ = nailpolish_bin()
         .args([
@@ -222,7 +235,7 @@ fn consensus_out_of_order() {
 
 #[test]
 fn index_cluster_file_skip_unmatched_errors_without_flag() {
-    let (_temp_dir, input, _) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", false);
+    let (_temp_dir, input, _) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", None, false);
 
     nailpolish_bin()
         .args(["index", &input, "--clusters", PARTIAL_CLUSTERS])
@@ -232,7 +245,7 @@ fn index_cluster_file_skip_unmatched_errors_without_flag() {
 
 #[test]
 fn index_cluster_file_skip_unmatched_succeeds_with_flag() {
-    let (_temp_dir, input, _) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", false);
+    let (_temp_dir, input, _) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", None, false);
 
     nailpolish_bin()
         .args([
@@ -248,7 +261,7 @@ fn index_cluster_file_skip_unmatched_succeeds_with_flag() {
 
 #[test]
 fn consensus_with_cluster_file() {
-    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", false);
+    let (_temp_dir, input, output) = make_temp_dir(SAMPLE_FASTQ, "input.fastq", None, false);
 
     // Create index using cluster file
     let _ = nailpolish_bin()
@@ -273,13 +286,5 @@ fn consensus_with_cluster_file() {
 
     const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
 
-    // cluster files will not have the CB/UB tags, so
-    // we will only compare lines 2 and 4 of each output read
-    let cmp_cmd = format!(
-        "diff \
-        <(awk 'NR % 4 == 2 || NR % 4 == 0' {CORRECT_FILE} | sort) \
-        <(awk 'NR % 4 == 2 || NR % 4 == 0' {output} | sort)"
-    );
-    // let _ = Command::new("bash").args(["-c", &cmp_cmd]).unwrap();
     let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
 }

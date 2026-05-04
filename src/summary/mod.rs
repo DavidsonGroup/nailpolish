@@ -10,7 +10,7 @@ use std::io::Write;
 
 use anyhow::Result;
 
-use crate::io::index::IndexReader;
+use crate::{io::index::IndexReader, summary::count::IndexStatistics};
 
 use count::summarize_index;
 
@@ -60,7 +60,23 @@ pub fn summarize(args: &crate::cli::SummaryArgs) -> Result<()> {
     write!(file, "{}", rendered_html)?;
 
     // report result
-    info!("Summary written to {}", summary_file.display());
+    info!("Summary written to {}. In brief:", summary_file.display());
+    print_stats_table(&stats);
 
     Ok(())
+}
+
+#[rustfmt::skip]
+fn print_stats_table(stats: &IndexStatistics) {
+        info!("──────────────────────────┬───────────────────────────────────────────────────");
+        info!("  Nailpolish version      │ {}", stats.nailpolish_version);
+        info!("  File path               │ {}", stats.file_path);
+        info!("  Dataset size            │ {} GB", stats.gb);
+        info!("  Index date              │ {}", stats.index_date);
+        info!("  Total read count        │ {}", stats.read_count);
+        info!("  Reads with barcodes     │ {}", stats.unfiltered_read_count);
+        info!("  Reads without barcodes  │ {}", stats.filtered_read_count);
+        info!("  Average quality         │ {}", stats.avg_qual);
+        info!("  Average length          │ {}", stats.avg_len);
+        info!("──────────────────────────┴───────────────────────────────────────────────────");
 }

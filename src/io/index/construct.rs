@@ -119,7 +119,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
         format_size(total_bytes, size_formatter)
     );
 
-    let final_position = reader.stream_position()? as f64 / (1024.0 * 1024.0);
+    let final_position = reader.stream_position()? as f64 / (1024.0 * 1024.0 * 1024.0);
 
     // finalise the gzip index, if the source file is a .gzip file
     reader.finish_gzip_index()?;

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Bar Chart from JSON</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            margin: auto;
+            max-width: 800px;
+            min-height: 100%;
+            background-color: white;
+        }
+
+        html {
+            background-color: #beabc2;
+        }
+
+        td {
+            vertical-align: top;
+        }
+
+        td:nth-child(1) {
+            /* your stuff here */
+            min-width: 150px;
+        }
+
+        td:nth-child(2) {
+            font-family: monospace;
+            padding-left: 10px;
+            font-size: 1.1em;
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
+
+        .bar-chart-container {
+            overflow: scroll;
+        }
+
+        /* Always show scrollbars */
+        ::-webkit-scrollbar {
+            -webkit-appearance: none;
+            width: 7px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            border-radius: 4px;
+            background-color: rgba(0, 0, 0, .5);
+            box-shadow: 0 0 1px rgba(255, 255, 255, .5);
+        }
+
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.3.0/chart.umd.min.js"></script>
+    <script>
+        let stats = {"total_reads":14143,"duplicate_reads":3289,"duplicate_ids":1310,"proportion_duplicate":0.23255320653326733,"distribution":{"1":10854,"2":815,"3":354,"4":115,"5":23,"6":2,"10":1}}
+        let data = stats.distribution;
+        let max_x = Math.max(...Object.keys(stats.distribution).map((x) => Number(x)));
+    </script>
+</head>
+<body>
+<h1>💅 nailpolish summary report</h1>
+<h2>Summary table</h2>
+<table>
+    <tr>
+        <td>
+            nailpolish version
+        </td>
+        <td>
+            0.1.0
+        </td>
+    </tr>
+
+    <tr>
+        <td>
+            file path
+        </td>
+        <td>
+            /Users/olliecheng/Developer/WEHI/consensus-call/duplicate-tools/scratch_quickstart/test/scmixology2_sample.fastq
+        </td>
+    </tr>
+    <tr>
+        <td>
+            dataset size
+        </td>
+        <td>
+            0.028 GB
+        </td>
+    </tr>
+    <tr>
+        <td>
+            index date
+        </td>
+        <td>
+            2024-12-05T12:53:28.557715+11:00
+        </td>
+    </tr>
+
+    <tr>
+        <td>
+            total read count
+        </td>
+        <td>
+            14143
+        </td>
+    </tr>
+    <tr>
+        <td>
+            matched reads
+        </td>
+        <td>
+            14143
+        </td>
+    </tr>
+    <tr>
+        <td>
+            unmatched reads
+        </td>
+        <td>
+            0
+        </td>
+    </tr>
+
+    <tr>
+        <td>
+            average quality
+        </td>
+        <td>
+            21.152015870930946
+        </td>
+    </tr>
+    <tr>
+        <td>
+            average length
+        </td>
+        <td>
+            1030.5793678851728
+        </td>
+    </tr>
+</table>
+<h2>
+    By UMI group
+</h2>
+
+A 'UMI group' is a group of reads which all share the same barcode and UMI.
+
+<div class="bar-chart-container">
+    <div>
+        <canvas id="byUmi"></canvas>
+    </div>
+</div>
+
+<h2>
+    By read
+</h2>
+
+Each read is classified by the number of reads in its corresponding UMI group.
+
+<div class="bar-chart-container">
+    <div>
+        <canvas id="byRead"></canvas>
+    </div>
+</div>
+
+
+<script>
+    const umi_dup_data = {
+        "labels": Object.keys(data),
+        "datasets": [{
+            label: "",
+            // "label": "duplicate count",
+            // "backgroundcolor": "rgba(75, 192, 192, 0.2)",
+            // "bordercolor": "rgba(75, 192, 192, 1)",
+            "data": Object.values(data)
+        }]
+    };
+
+    const ctxUmi = document.getElementById('byUmi').getContext('2d');
+    let umiChart = new Chart(ctxUmi, {
+        type: 'bar',
+        data: umi_dup_data,
+        options: {
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'nearest',
+                axis: 'x'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+            },
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                },
+                x: {
+                    grace: 0,
+                    offset: false,
+                    beginAtZero: true,
+                    title: "Duplicate count",
+                    type: "linear"
+                }
+            }
+        }
+    });
+
+    let read_data = Object.fromEntries(Object.entries(data).map(([k, v]) => ([k, v * k])));
+
+    const read_dup_data = {
+        "labels": Object.keys(read_data),
+        "datasets": [{
+            label: "",
+            // "label": "duplicate count",
+            // "backgroundcolor": "rgba(75, 192, 192, 0.2)",
+            // "bordercolor": "rgba(75, 192, 192, 1)",
+            "data": Object.values(read_data)
+        }]
+    };
+
+    const ctxRead = document.getElementById('byRead').getContext('2d');
+    let readChart = new Chart(ctxRead, {
+        type: 'bar',
+        data: read_dup_data,
+        options: {
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'nearest',
+                axis: 'x'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+            },
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                },
+                x: {
+                    grace: 0,
+                    offset: false,
+                    beginAtZero: true,
+                    title: "Duplicate count",
+                    type: "linear"
+                }
+            }
+        }
+    });
+
+
+    umiChart.canvas.parentNode.style.height = '400px';
+    umiChart.canvas.parentNode.style.width = 15 * max_x + "px";
+
+
+    readChart.canvas.parentNode.style.height = '400px';
+    readChart.canvas.parentNode.style.width = 15 * max_x + "px";
+</script>
+</body>
+</html>

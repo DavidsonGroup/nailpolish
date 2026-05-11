@@ -26,51 +26,88 @@ Arguments:
           [default: bc-umi]
 
           Possible values:
-          - bc-umi:    @BARCODE_UMI format as produced by Flexiplex for 10x3 chemistry
-          - umi-tools: `_<UMI>` format as produced by `umi-tools extract`
-          - illumina:  bcl2fastq format, which has `:<UMI>` at the end of the read ID
+          - bc-umi:           @BARCODE_UMI format as produced by Flexiplex for 10x3 chemistry
+          - umi-tools:        `_<UMI>` format as produced by `umi-tools extract`
+          - illumina:         bcl2fastq format, which has `:<UMI>` at the end of the read ID
+          - sam-tagged-cb-ub: .sam tag format with barcode and UMI (CB:Z and UB:Z tags)
+          - sam-tagged-cb:    .sam tag format with barcode only (CB:Z tag)
 
 Options:
       --overwrite
           overwrite an existing index file, if it exists
 
       --clusters <CLUSTERS>
-          whether to use a file containing pre-clustered reads, with every line in one of two formats:
-            1. READ_ID;BARCODE
-            2. READ_ID;BARCODE;UMI
+          use a file containing pre-clustered reads. the file must be semicolon-delimited
+          with a header line, where the first column is the read ID and subsequent columns
+          are tag names. for example:
+            read_id;CB;UB
+            READ_HEADER_1;BARCODE1;UMI1
 
       --barcode-regex <BARCODE_REGEX>
           barcode regex format type, for custom header styles. this will override the preset given.
           for example, for the `bc-umi` preset:
-              ^([ATCG]{16})_([ATCG]{12})
+              ^(?<CB>[ATCGNX]{16})_(?<UB>[ATCGNX]{12})
 
       --skip-unmatched
           skip, instead of error, on reads which are not accounted for:
           - if a cluster file is passed, any reads which are not in any cluster
           - if a barcode regex or preset is used (default), any reads which do not match the regex
 
-      --len <LEN>
-          filter lengths to a value within the given float interval [a,b].
-          a is the minimum, and b is the maximum (both inclusive).
-          alternatively, a can be `-inf` and b can be `inf.
-          an unbounded interval (i.e. no length filter) is given by `0,inf`.
-          
-          [default: 0,15000]
-
-      --qual <QUAL>
-          filter average read quality to a value within the given float interval [a,b].
-          see the docs for `--len` for documentation on how to use the interval.
-          
-          [default: 0,inf]
-
   -h, --help
           Print help (see a summary with '-h')
 ```
 
+## Indexing different file types
+
+### Flexiplex output
+
+If your reads were demultiplexed with [Flexiplex](https://github.com/DavidsonGroup/flexiplex) (Cheng et al. 2024),
+use the default `bc-umi` preset:
+
+```bash
+nailpolish index reads.fastq
+# equivalent to:
+nailpolish index reads.fastq bc-umi
+```
+
+Read headers are expected to look like `ATCGATCGATCGATCG_ATCGATCGATCG` (16 bp barcode + 12 bp UMI).
+
+### SAM/BAM-tagged reads
+
+If your reads come from an alignment pipeline that annotates reads with SAM tags, use one of the SAM presets:
+
+```bash
+# reads tagged with both CB (cell barcode) and UB (UMI)
+nailpolish index reads.fastq sam-tagged-cb-ub
+
+# reads tagged with CB only (no UMI)
+nailpolish index reads.fastq sam-tagged-cb
+```
+
+These presets extract tags from the read comment field, which in FASTQ format carries the SAM auxiliary tags
+(e.g., `\t:CB:Z:ATCGATCG\t:UB:Z:TTTTTTTT`).
+
+### Pre-clustered reads from isONclust
+
+If you have already clustered reads with an external tool such as
+[isONclust](https://github.com/ksahlin/isONclust), use the `--clusters` option.
+_nailpolish_ can then perform consensus calling on these clusters, which is significantly faster
+than calling the `spoa` binary in a loop since it uses the same library under the hood.
+
+isONclust produces output in the format `cluster_id<tab>read_header`. Convert it to the cluster
+file format expected by _nailpolish_ using `awk`:
+
+```bash
+awk 'BEGIN{print "read_id;UB"} {print $2";"$1}' isonclust_clusters.tsv > clusters.txt
+nailpolish index --clusters clusters.txt reads.fastq
+```
+
+Here, the cluster ID is used as the `UB` tag (effectively treated as the grouping key).
+
 ## Reading the index
 ### Presets
 
-Three presets are bundled with _nailpolish_ for common barcode formats.
+Five presets are bundled with _nailpolish_ for common barcode formats.
 These are useful when the header of each read contains information about the barcode.
 
 - `bc-umi`: read headers look like this: `ATCGATCGATCG_ATCGATCGATCGATCG` in the `BC_UMI` format.
@@ -82,6 +119,9 @@ These are useful when the header of each read contains information about the bar
 - `illumina`: read headers look like this: `SIM:1:FCX:1:2106:15337:1063:ATCGATCGATCG 1:N:0:ATCACG` where `ATCGATCGATCG`
   is the UMI sequence.
   This is the default UMI header format produced by tools such as `bcl2fastq`.
+- `sam-tagged-cb-ub`: reads carry both a cell barcode (`CB:Z:`) and UMI (`UB:Z:`) as SAM auxiliary tags
+  in the read comment field.
+- `sam-tagged-cb`: reads carry only a cell barcode (`CB:Z:`) as a SAM auxiliary tag.
 
 ### Barcode regex
 
@@ -89,9 +129,11 @@ For reads where barcodes and UMIs are contained in the header, in an esoteric fo
 can be provided through the `--barcode-regex <BARCODE_REGEX>` parameter. As examples, here are the regular expressions
 for the presets above:
 
-- `bc-umi`: `--barcode-regex "^([ATCG]{16})_([ATCG]{12})"`
-- `umi-tools`: `--barcode-regex "_([ATCG]+)$"`
-- `illumina`: `--barcode-regex ":([ATCG]+)$"`
+- `bc-umi`: `--barcode-regex "^(?<CB>[ATCGNX]{16})_(?<UB>[ATCGNX]{12})"`
+- `umi-tools`: `--barcode-regex "_(?<UB>[ATCGNX]+)$"`
+- `illumina`: `--barcode-regex ":(?<UB>[ATCGNX]+)$"`
+
+Capture group names (e.g. `CB`, `UB`) determine what tag names appear in the output of `nailpolish consensus`.
 
 Regular expressions are parsed by the excellent `regex` library for Rust.
 This library is performant and has guarantees on worst-case time complexity;
@@ -104,22 +146,22 @@ regular expression.
 
 ### Cluster file
 
-_nailpolish_ can alternatively extract UMIs from a separately provided delimiter-separated file, if this information is
-not in the read headers.
-The file must be **semicolon-delimited** (`;`). Rows must be in the format `READ_ID;BARCODE` or `READ_ID;BARCODE;UMI`.
-Note that **no header line** should be present in the file.
+_nailpolish_ can alternatively read grouping information from a separately provided file, if this information is
+not in the read headers. This is useful when reads have been pre-clustered by an external tool.
+
+The file must be **semicolon-delimited** (`;`) and must include a **header line** as the first row.
+The first column must be named `read_id` and contain the read header. Subsequent columns define the tag names
+(e.g. `CB`, `UB`) and their values for each read.
+
+```
+read_id;CB;UB
+READ_HEADER_1;BARCODE1;UMI1
+READ_HEADER_2;BARCODE2;UMI2
+```
+
+The column names in the header row (after `read_id`) become the tag names used in the output of `nailpolish consensus`.
 
 By default, _nailpolish_ expects that every read in the input `.fastq` **must** have a corresponding entry in the
 cluster file.
 In the event where this is not the case, _nailpolish_ will error. To ignore this error and silently skip over any
 unmatched reads, the `--skip-unmatched` flag should be passed.
-
-## Filtering
-_nailpolish_ has filter settings which will exclude a read from being consensus called or considered part of a group.
-**The read will be in the final consensus called output.** This exists because sometimes sequencing errors can be excessively long, which have an outsized impact overall consensus calling time.
-
-The default filtering settings are very conservative, only filtering reads with length >15000bp.
-
-Two types of metadata can be filtered against: sequence length (using `--len`) and sequence quality (using `--qual`).
-Filters should be _intervals_; that is, a string `[a, b]` where `a` and `b` represent the inclusive upper and lower
-bound respectively.

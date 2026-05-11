@@ -21,7 +21,8 @@ Options:
       --id <ID>                  Filter by specific group IDs (comma-separated)
       --key <KEY>                Filter by regex pattern for the key
       --group-size <GROUP_SIZE>  Filter by the size of the duplicate group
-      --format <FORMAT>          Output format type [default: fastq] [possible values: fastq, fasta]
+      --read-nums <READ_NUMS>    Choose a subset of reads by index within a group (comma-separated)
+      --format <FORMAT>          Output format type [default: fastq] [possible values: fastq, fasta, metadata]
   -h, --help                     Print help
 ```
 
@@ -39,3 +40,10 @@ These are mutually exclusive predicates i.e. only one can be given at a time.
 #└────────────key────────────┘      └─id
 @GATAGCTAGCAACAAT_ATTTTACCGACC|id=12047|type=consensus|cluster=2|reads_called=3
 ```
+
+## Other options
+
+- `--read-nums`: select a subset of reads by their index within each matching group
+  (comma-separated, e.g. `1,2`). Can be combined with any predicate.
+- `--format`: output format. Options are `fastq` (default), `fasta`, or `metadata`
+  (tab-separated metadata only, without sequence data).

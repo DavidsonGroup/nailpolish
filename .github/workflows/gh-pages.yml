@@ -3,7 +3,7 @@ name: Build and Deploy Documentation
 on:
   push:
     branches:
-      - docs
+      - develop
   workflow_dispatch:
 
 permissions:
@@ -25,11 +25,12 @@ jobs:
 
       - name: Build MkDocs site
         run: make build
+        working-directory: docs
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./site
+          path: ./docs/site
 
   deploy:
     needs: build

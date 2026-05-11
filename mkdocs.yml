@@ -1,4 +1,4 @@
-site_name: Nailpolish Documentation
+site_name: "💅 Nailpolish Documentation"
 site_description: Documentation for nailpolish, a tool for error correcting PCR duplicates in sequencing data
 repo_url: https://github.com/DavidsonGroup/nailpolish
 repo_name: DavidsonGroup/nailpolish
@@ -12,9 +12,13 @@ theme:
     - search.highlight
     - content.code.copy
   font:
-    text: Inter
+    text: Fira Sans
   palette:
     scheme: default
+    primary: custom
+
+watch:
+  - docs
 
 extra_css:
   - stylesheets/extra.css
@@ -41,7 +45,8 @@ nav:
     - Installation: install.md
     - Quickstart: quickstart.md
   - Reference:
-    - Overview: commands.md
+    - Overview: reference/overview.md
+    - Output format: reference/output-format.md
     - Commands:
       - nailpolish index: commands/index.md
       - nailpolish consensus: commands/consensus.md

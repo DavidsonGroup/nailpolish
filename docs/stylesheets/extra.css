@@ -2,6 +2,24 @@
   display: none;
 }
 
+/* 
 .md-header, .md-tabs {
   background-color: #4a1a5e;
+} */
+
+:root>* {
+  --md-primary-fg-color: #4a1a5e;
+}
+
+html {
+  font-size: 22px;
+}
+
+.md-content a {
+  text-decoration: underline;
+}
+
+.md-content a::after {
+  /* nbsp first*/
+  content: "\00a0↗"
 }

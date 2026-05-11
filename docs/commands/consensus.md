@@ -38,46 +38,22 @@ Options:
 
 ## Output format
 
-A .fastq file will be produced. By default, each read will look like this:
+A `.fastq` file will be produced. Read headers carry metadata as SAM auxiliary tags in the FASTQ
+comment field (tab-separated, after the read name). See the [Output format reference](../reference/output-format.md)
+for a complete description of all tags.
 
-```bash
-
-@GATAGCTAGCAACAAT_ATTTTACCGACC|id=12047|type=consensus|cluster=1|reads_called=2
-#  barcode─┘        UMI─┘  group id─┘       type─┘             │              │
-#                                   ID of cluster within group─┘              │
-#                                            this cluster has two reads in it─┘
-
-
-# if duplicate group 12047 has 2 clusters, both are reported...
-@GATAGCTAGCAACAAT_ATTTTACCGACC|id=12047|type=consensus|cluster=2|reads_called=3
-#            same group as above...─┘                          │              │
-#                                     ...but different cluster─┘              │
-#                                          this cluster has three reads in it─┘                                
-
-
-@GCAGTTAAGGATATAC_ACAGTTTCTTTG|id=2829|type=single|cluster=1|reads_called=1
-#                 this group has only one read─┘           │              │
-#                         in this case, these are always 1─┴──────────────┘
+A typical output looks like this (tabs shown as newlines for clarity):
 
 ```
-
-Flags can be passed to add other information to the output as well.
-
-```bash
-
-# using `--report-original-reads`, the original reads are produced as well...
-@CTCAAGACATTGAGCT_ATTTTTTTTTTT|id=3566|type=original|read=3|cluster=2
-#                    this is the original read─┘          │         │
-#                                 third read in the group─┘         │
-#                                this read contributed to cluster 2─┘
-
-
-# using `--report-original-header`, the original headers are outputted...
-@GGAGGATTCTTCTAAC_TGTTCTTGAAGC|<...removed...>|orig_header=["GGAGGATTCTTCTAAC_TGTTCTTGAAGC#682b2274-473a-4a59-affe-30dbe4f1d070_+1of1","GGAGGATTCTTCTAAC_TGTTCTTGAAGC#36a1b7bd-5bab-45e1-a591-cb966f890f90_-1of1"]
-#                            ... see the original header →                                   →                             →                   →                           →                                ... these are the two reads that were called.
-
+@processed_12047_1
+  MI:Z:GATAGCTAGCAACAAT_ATTTTACCGACC
+  nI:i:12047
+  CB:Z:GATAGCTAGCAACAAT
+  UB:Z:ATTTTACCGACC
+  nT:Z:consensus
+  nC:i:1
+  nL:i:2
 ```
-
 
 ## Options
 

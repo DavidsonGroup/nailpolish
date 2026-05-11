@@ -14,3 +14,5 @@ Nailpolish operates in a reference-free manner, first identifying duplicate grou
 <img src="./assets/consensus_diagram.png" alt="consensus diagram" width="400"/>
 
 See the [Quick Start](./quickstart.md) guide to begin using Nailpolish with your data.
+
+[^1]: For a singular .md file containing the entire documentation that you can point your LLM to, see [`/llms.md`](/llms.md)

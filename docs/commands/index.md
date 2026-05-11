@@ -1,3 +1,7 @@
+---
+title: nailpolish index
+---
+
 # nailpolish index
 
 This command is used to create an index file from a demultiplexed `.fastq`.

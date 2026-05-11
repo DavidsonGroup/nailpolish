@@ -1,7 +1,11 @@
+---
+title: nailpolish consensus
+---
+
 # nailpolish consensus
 
 Consensus call duplicated reads.
-The reads must first have been [indexed](./generate-index.md).
+The reads must first have been [indexed](./index.md).
 By default, reads within each duplicate group will be clustered to eliminate false duplicates.
 
 ## Usage

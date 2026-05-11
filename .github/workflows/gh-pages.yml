@@ -1,4 +1,4 @@
-name: deploy to gh pages
+name: Build and Deploy Documentation
 
 on:
   push:
@@ -6,47 +6,38 @@ on:
       - docs
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - name: Setup mdBook
-        uses: peaceiris/actions-mdbook@v2
-        with:
-          mdbook-version: 'latest'
+      - uses: astral-sh/setup-uv@v6
 
-      - run: mdbook build
+      - name: Build MkDocs site
+        run: uv run mkdocs build
 
-      - name: Upload static files as artifact
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
-        id: deployment
         with:
-          path: ./book
+          path: ./site
 
-  # Deploy job
   deploy:
-    # Add a dependency to the build job
     needs: build
-
-    # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
-    permissions:
-      pages: write      # to deploy to Pages
-      id-token: write   # to verify the deployment originates from an appropriate source
-
-    # Deploy to the github-pages environment
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
-    # Specify runner + deployment step
-    runs-on: ubuntu-latest
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-

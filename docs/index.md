@@ -1,3 +1,8 @@
+---
+title: Home
+description: A high-performance Rust tool for error correcting PCR duplicates in sequencing data
+---
+
 # Welcome to Nailpolish's documentation!
 
 Nailpolish is a high-performance Rust tool designed to improve the accuracy of sequencing data by error correcting PCR duplicates.

@@ -1,2 +1,21 @@
 book
 target/
+
+# MkDocs
+site/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Dependencies
+vendor/
+node_modules/

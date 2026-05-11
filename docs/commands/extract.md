@@ -1,3 +1,7 @@
+---
+title: nailpolish extract
+---
+
 # nailpolish extract
 
 Retrieve the original unmodified reads within duplicate groups that match a predicate.

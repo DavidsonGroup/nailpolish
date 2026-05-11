@@ -1,0 +1,55 @@
+site_name: "💅 Nailpolish Documentation"
+site_description: Documentation for nailpolish, a tool for error correcting PCR duplicates in sequencing data
+repo_url: https://github.com/DavidsonGroup/nailpolish
+repo_name: DavidsonGroup/nailpolish
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - content.code.copy
+  font:
+    text: Fira Sans
+  palette:
+    scheme: default
+    primary: custom
+
+watch:
+  - content
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - footnotes
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - attr_list
+
+docs_dir: content
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: install.md
+    - Quickstart: quickstart.md
+  - Reference:
+    - Overview: reference/overview.md
+    - Output format: reference/output-format.md
+    - Commands:
+      - nailpolish index: commands/index.md
+      - nailpolish consensus: commands/consensus.md
+      - nailpolish extract: commands/extract.md
+      - nailpolish summary: commands/summary.md

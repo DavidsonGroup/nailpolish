@@ -4,8 +4,12 @@
 // where you made use of it for any part of the data analysis.
 
 /// Read filtering based on length and quality criteria
+use std::cmp::Reverse;
+
+use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
+
 use crate::{
-    cli::interval::ArgInterval,
+    cli::{interval::ArgInterval, LargeGroupMethod},
     io::index::{DuplicateGroup, DuplicateGroupLocation, DuplicateGroupType, ReadLocation},
 };
 
@@ -17,6 +21,8 @@ pub struct FilterOpts {
     pub quality: ArgInterval,
     /// Max group size filter
     pub max_group_size: usize,
+    /// How to handle groups exceeding max_group_size
+    pub large_group_method: LargeGroupMethod,
 }
 
 impl FilterOpts {
@@ -26,6 +32,7 @@ impl FilterOpts {
             len: cli.len,
             quality: cli.qual,
             max_group_size: cli.max_group_size,
+            large_group_method: cli.large_group_method.clone(),
         }
     }
 }
@@ -43,52 +50,77 @@ pub fn filter_group_locations(
     reads: Vec<Vec<u8>>,
     opts: &FilterOpts,
 ) -> Vec<DuplicateGroup> {
-    if group.reads.len() > opts.max_group_size {
-        // this group should be filtered out
-        let id = group.id;
-        let key = group.key.clone();
+    let id = group.id;
+    let key = group.key.clone();
+    let is_large = group.reads.len() > opts.max_group_size;
 
-        vec![DuplicateGroup {
-            id,
-            key,
-            reads,
-            group_type: DuplicateGroupType::Filtered,
-        }]
-    } else {
-        let id = group.id;
-        let key = group.key.clone();
-
-        // For normal-sized groups, filter individual reads based on should_keep criteria
-        let mut valid_group = DuplicateGroup {
-            id,
-            key: key.clone(),
-            reads: vec![],
-            group_type: DuplicateGroupType::Valid,
-        };
-        let mut filt_group = DuplicateGroup {
-            id,
-            key: key,
-            reads: vec![],
-            group_type: DuplicateGroupType::Filtered,
-        };
-
-        for (read_loc, read) in group.reads.iter().zip(reads) {
-            if should_keep(read_loc, opts) {
-                valid_group.reads.push(read)
-            } else {
-                filt_group.reads.push(read)
+    // Handle early-exit cases for large groups
+    if is_large {
+        match opts.large_group_method {
+            LargeGroupMethod::Drop => return vec![],
+            LargeGroupMethod::Passthrough => {
+                return vec![DuplicateGroup {
+                    id,
+                    key,
+                    reads,
+                    group_type: DuplicateGroupType::Filtered,
+                }];
             }
+            _ => {}
         }
-
-        let mut groups = vec![];
-
-        if valid_group.reads.len() > 0 {
-            groups.push(valid_group);
-        }
-        if filt_group.reads.len() > 0 {
-            groups.push(filt_group);
-        }
-
-        groups
     }
+
+    // For large Sample/Longest groups, build a subsampled index set.
+    // For normal groups, include all indices.
+    let indices: Vec<usize> = if is_large {
+        match opts.large_group_method {
+            LargeGroupMethod::Sample => {
+                // seed from group ID for fully reproducible output
+                let mut rng = StdRng::seed_from_u64(id as u64);
+                let mut idx: Vec<usize> = (0..reads.len()).collect();
+                idx.shuffle(&mut rng);
+                idx.truncate(opts.max_group_size);
+                idx
+            }
+            LargeGroupMethod::Longest => {
+                let mut idx: Vec<usize> = (0..reads.len()).collect();
+                idx.sort_by_key(|&i| Reverse(group.reads[i].byte_len()));
+                idx.truncate(opts.max_group_size);
+                idx
+            }
+            _ => unreachable!(), // Drop and Passthrough already returned above
+        }
+    } else {
+        (0..reads.len()).collect()
+    };
+
+    let mut valid_group = DuplicateGroup {
+        id,
+        key: key.clone(),
+        reads: vec![],
+        group_type: DuplicateGroupType::Valid,
+    };
+    let mut filt_group = DuplicateGroup {
+        id,
+        key,
+        reads: vec![],
+        group_type: DuplicateGroupType::Filtered,
+    };
+
+    for &i in &indices {
+        if should_keep(&group.reads[i], opts) {
+            valid_group.reads.push(reads[i].clone());
+        } else {
+            filt_group.reads.push(reads[i].clone());
+        }
+    }
+
+    let mut groups = vec![];
+    if !valid_group.reads.is_empty() {
+        groups.push(valid_group);
+    }
+    if !filt_group.reads.is_empty() {
+        groups.push(filt_group);
+    }
+    groups
 }

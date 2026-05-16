@@ -15,4 +15,4 @@ Nailpolish operates in a reference-free manner, first identifying duplicate grou
 
 See the [Quick Start](./quickstart.md) guide to begin using Nailpolish with your data.
 
-[^1]: For a singular .md file containing the entire documentation that you can point your LLM to, see [`/llms.md`](/llms.md)
+[^1]: For a singular .md file containing the entire documentation that you can point your LLM to, see [`/nailpolish/llms.md`](/llms.md)

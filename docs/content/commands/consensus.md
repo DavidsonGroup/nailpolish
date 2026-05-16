@@ -32,6 +32,8 @@ Options:
       --len <LEN>                    filter lengths to a value within the given float interval [a,b] [default: 0,15000]
       --qual <QUAL>                  filter average read quality to a value within the given float interval [a,b] [default: 0,inf]
       --max-group-size <N>           skip consensus calling for groups larger than this size [default: 250]
+      --large-group-method <METHOD>  how to handle groups larger than --max-group-size
+                                     [default: passthrough] [possible values: passthrough, drop, sample, longest]
       --sort-by <TAG>                sort groups by the specified capture group tag (e.g. 'CB' for cell barcode)
   -h, --help                         Print help
 ```
@@ -66,11 +68,22 @@ A typical output looks like this (tabs shown as newlines for clarity):
   from consensus calling. Default: `0,15000` (reads longer than 15,000 bp are excluded,
   as excessively long reads from sequencing errors can dominate consensus calling time).
 - `--qual <QUAL>`: filter reads by average base quality. Default: `0,inf` (no quality filter).
-- `--max-group-size <N>`: skip consensus calling for groups larger than `N` reads (default: 250).
-  Very large groups are typically caused by false duplicates; skipping them prevents an outsized
-  impact on runtime.
-- `--sort-by <TAG>`: sort groups by the named capture group tag before output
-  (e.g. `--sort-by CB` to sort by cell barcode).
+- `--max-group-size <N>`: the size threshold for large-group handling (default: 250).
+  Groups exceeding this size are processed according to `--large-group-method`.
+- `--large-group-method <METHOD>`: controls what happens to groups that exceed `--max-group-size`.
+  Options:
+    - `passthrough` *(default)*: output all reads unmodified with no consensus calling —
+      the existing behaviour, preserved for backwards compatibility. Very large groups are
+      typically caused by false duplicates; skipping consensus calling prevents an outsized
+      impact on runtime.
+    - `drop`: omit the group from output entirely.
+    - `sample`: pseudorandomly subsample reads down to `--max-group-size` reads and produce
+      a consensus from the sample. The random seed is derived from the group ID, so output
+      is fully reproducible for a given input file.
+    - `longest`: keep only the longest reads (up to `--max-group-size`) and produce a consensus
+      from those reads.
+  - `--sort-by <TAG>`: sort groups by the named capture group tag before output
+    (e.g. `--sort-by CB` to sort by cell barcode).
 
 ## False duplicate detection
 
@@ -80,9 +93,6 @@ Before adding each read to a partial order alignment graph, nailpolish checks wh
 aligns well to the existing graph. If the alignment introduces too many new nodes relative to
 existing ones (more than 25% of valid nodes), the read is assigned to a new cluster rather than
 merged into the current one.
-
-This produces multiple consensus sequences for a single group when the reads are insufficiently
-similar. Each cluster is reported separately in the output with an incrementing `cluster=` field.
 
 To disable this behaviour — for example, when you are confident that all reads in a group are
 true duplicates, or when using pre-clustered inputs from a tool like isONclust — pass

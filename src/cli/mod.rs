@@ -119,6 +119,18 @@ pub struct SummaryArgs {
     pub output: Option<PathBuf>,
 }
 
+#[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
+pub enum LargeGroupMethod {
+    /// Output all reads unmodified, skipping consensus calling (backwards-compatible default)
+    Passthrough,
+    /// Omit the group from output entirely
+    Drop,
+    /// Pseudorandomly subsample reads to max-group-size, then consensus call
+    Sample,
+    /// Keep the longest reads (up to max-group-size), then consensus call
+    Longest,
+}
+
 #[derive(Debug, Args)]
 /// Generate a consensus-called 'cleaned up' file
 pub struct ConsensusArgs {
@@ -178,6 +190,14 @@ pub struct ConsensusArgs {
     /// on runtime.
     #[arg(long, default_value_t = 250)]
     pub max_group_size: usize,
+
+    /// how to handle groups larger than --max-group-size.
+    /// passthrough outputs all reads without consensus calling (current behaviour);
+    /// drop omits the group from output entirely;
+    /// sample pseudorandomly subsamples to max-group-size and consensus calls the result;
+    /// longest keeps the longest reads up to max-group-size and consensus calls the result.
+    #[arg(long, value_enum, default_value = "passthrough", verbatim_doc_comment)]
+    pub large_group_method: LargeGroupMethod,
 
     /// sort groups by the specified capture group tag (e.g., 'CB' for cell barcode)
     #[arg(long)]

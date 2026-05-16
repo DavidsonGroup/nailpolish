@@ -19,6 +19,7 @@ use std::path::Path;
 const SAMPLE_FASTQ: &str = "tests/data/scmixology2_sample.fastq";
 const SAMPLE_FASTQ_GZ: &str = "tests/data/scmixology2_sample.fastq.gz";
 const PARTIAL_CLUSTERS: &str = "tests/data/partial_clusters.txt";
+const SMALL_LARGE_GROUP_FASTQ: &str = "tests/data/small_large_group.fastq";
 
 fn make_temp_dir(
     source_path: &str,
@@ -157,6 +158,81 @@ fn consensus_3t_with_clustering() {
 
     const CORRECT_FILE: &str = "tests/correct/consensus_with_cluster.fastq";
 
+    let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
+}
+
+#[test]
+fn large_group_drop() {
+    let (_temp_dir, input, output) = make_temp_dir(SMALL_LARGE_GROUP_FASTQ, "input.fastq", None, true);
+
+    let _ = nailpolish_bin()
+        .args([
+            "consensus",
+            &input,
+            "-o",
+            &output,
+            "--threads",
+            "1",
+            "--no-clustering",
+            "--max-group-size",
+            "2",
+            "--large-group-method",
+            "drop",
+        ])
+        .assert()
+        .success();
+
+    const CORRECT_FILE: &str = "tests/correct/large_group_drop.fastq";
+    let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
+}
+
+#[test]
+fn large_group_sample() {
+    let (_temp_dir, input, output) = make_temp_dir(SMALL_LARGE_GROUP_FASTQ, "input.fastq", None, true);
+
+    let _ = nailpolish_bin()
+        .args([
+            "consensus",
+            &input,
+            "-o",
+            &output,
+            "--threads",
+            "1",
+            "--no-clustering",
+            "--max-group-size",
+            "2",
+            "--large-group-method",
+            "sample",
+        ])
+        .assert()
+        .success();
+
+    const CORRECT_FILE: &str = "tests/correct/large_group_sample.fastq";
+    let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
+}
+
+#[test]
+fn large_group_longest() {
+    let (_temp_dir, input, output) = make_temp_dir(SMALL_LARGE_GROUP_FASTQ, "input.fastq", None, true);
+
+    let _ = nailpolish_bin()
+        .args([
+            "consensus",
+            &input,
+            "-o",
+            &output,
+            "--threads",
+            "1",
+            "--no-clustering",
+            "--max-group-size",
+            "2",
+            "--large-group-method",
+            "longest",
+        ])
+        .assert()
+        .success();
+
+    const CORRECT_FILE: &str = "tests/correct/large_group_longest.fastq";
     let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
 }
 

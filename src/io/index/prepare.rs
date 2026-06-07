@@ -3,7 +3,7 @@
 // We also ask that you cite this software in publications
 // where you made use of it for any part of the data analysis.
 
-/// Read filtering based on length and quality criteria
+/// Read filtering and preparation of duplicate groups
 use std::cmp::Reverse;
 
 use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
@@ -45,7 +45,7 @@ pub fn should_keep(loc: &ReadLocation, opts: &FilterOpts) -> bool {
     quality_good && len_good
 }
 
-pub fn filter_group_locations(
+pub fn process_group_locations(
     group: &DuplicateGroupLocation,
     reads: Vec<Vec<u8>>,
     opts: &FilterOpts,
@@ -107,13 +107,16 @@ pub fn filter_group_locations(
         group_type: DuplicateGroupType::Filtered,
     };
 
+    let mut valid_reads: Vec<(f32, Vec<u8>)> = vec![];
     for &i in &indices {
         if should_keep(&group.reads[i], opts) {
-            valid_group.reads.push(reads[i].clone());
+            valid_reads.push((group.reads[i].qual, reads[i].clone()));
         } else {
             filt_group.reads.push(reads[i].clone());
         }
     }
+    valid_reads.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    valid_group.reads = valid_reads.into_iter().map(|(_, r)| r).collect();
 
     let mut groups = vec![];
     if !valid_group.reads.is_empty() {

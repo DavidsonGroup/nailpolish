@@ -4,7 +4,7 @@
 // where you made use of it for any part of the data analysis.
 
 pub mod construct;
-pub mod filter;
+pub mod prepare;
 pub mod metadata;
 pub mod record_identifier;
 pub mod storage;

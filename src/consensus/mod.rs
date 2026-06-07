@@ -19,7 +19,7 @@ use rkyv::vec::ArchivedVec;
 use spoa::{AlignmentEngine, AlignmentType};
 
 use crate::cli::ConsensusArgs;
-use crate::io::index::filter::{filter_group_locations, FilterOpts};
+use crate::io::index::prepare::{process_group_locations, FilterOpts};
 use crate::io::index::{DuplicateGroup, DuplicateGroupType, FileIndexPath, IndexReader};
 
 mod cluster;
@@ -105,7 +105,7 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
             .into_iter()
             .map(|group_loc| -> Result<Vec<_>> {
                 let reads = accessor.fetch_group(&group_loc)?;
-                let groups = filter_group_locations(&group_loc, reads, &opts);
+                let groups = process_group_locations(&group_loc, reads, &opts);
                 Ok(groups)
             })
             .flatten_ok()

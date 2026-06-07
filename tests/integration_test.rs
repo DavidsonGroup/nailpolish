@@ -27,9 +27,16 @@ fn make_temp_dir(
     output_name: Option<&str>,
     should_index: bool,
 ) -> (assert_fs::TempDir, String, String) {
+    let should_persist = std::env::var_os("TEST_PERSIST_FILES").is_some();
+
     let temp_dir = TempDir::new_in("tests/")
         .unwrap()
-        .into_persistent_if(std::env::var_os("TEST_PERSIST_FILES").is_some());
+        .into_persistent_if(should_persist);
+
+    if should_persist {
+        eprintln!("Created temporary directory: {}", temp_dir.path().display());
+    }
+
     let input_path = temp_dir
         .path()
         .join(input_name)
@@ -117,10 +124,8 @@ fn consensus_3t_no_clustering() {
         .assert()
         .success();
 
-    // DISABLED due to bug in SPOA consensus algorithm
-    // TODO: remove when bug is fixed
-    // const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
-    // let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
+    const CORRECT_FILE: &str = "tests/correct/consensus_no_cluster.fastq";
+    let _ = Command::new("diff").args([&output, CORRECT_FILE]).unwrap();
 }
 
 #[test]
@@ -163,7 +168,8 @@ fn consensus_3t_with_clustering() {
 
 #[test]
 fn large_group_drop() {
-    let (_temp_dir, input, output) = make_temp_dir(SMALL_LARGE_GROUP_FASTQ, "input.fastq", None, true);
+    let (_temp_dir, input, output) =
+        make_temp_dir(SMALL_LARGE_GROUP_FASTQ, "input.fastq", None, true);
 
     let _ = nailpolish_bin()
         .args([
@@ -188,7 +194,8 @@ fn large_group_drop() {
 
 #[test]
 fn large_group_sample() {
-    let (_temp_dir, input, output) = make_temp_dir(SMALL_LARGE_GROUP_FASTQ, "input.fastq", None, true);
+    let (_temp_dir, input, output) =
+        make_temp_dir(SMALL_LARGE_GROUP_FASTQ, "input.fastq", None, true);
 
     let _ = nailpolish_bin()
         .args([
@@ -213,7 +220,8 @@ fn large_group_sample() {
 
 #[test]
 fn large_group_longest() {
-    let (_temp_dir, input, output) = make_temp_dir(SMALL_LARGE_GROUP_FASTQ, "input.fastq", None, true);
+    let (_temp_dir, input, output) =
+        make_temp_dir(SMALL_LARGE_GROUP_FASTQ, "input.fastq", None, true);
 
     let _ = nailpolish_bin()
         .args([

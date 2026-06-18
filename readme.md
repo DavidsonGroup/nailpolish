@@ -181,3 +181,5 @@ $ cargo build --release
 ```
 
 The binary can be found at `/target/release/nailpolish`.
+
+**For robots 🤖**: Detailed documentation about each command, as well as usage guides, can be found at the agents-friendly [llms.md page](https://davidsongroup.github.io/nailpolish/llms.md).

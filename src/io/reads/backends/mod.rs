@@ -12,17 +12,30 @@ pub(crate) trait Accessor: Send {
     fn read(&mut self, off: u64, len: u32) -> Result<Vec<u8>>;
 }
 
-/// Factory for `Accessor`
+/// A half-open byte range `[start, end)` within the uncompressed data stream.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct ByteRange {
+    pub start: u64,
+    pub end: u64,
+}
+
+impl ByteRange {
+    /// Length of the range in bytes, as expected by [`Accessor::read`].
+    pub(crate) fn len(&self) -> u32 {
+        (self.end - self.start) as u32
+    }
+}
+
+/// A source of reads which can be randomly accessed. Each backend owns its own
+/// concurrency strategy — thread pool, accessor caching, and work splitting are all
+/// private details, since the right approach differs between backends (plain files are
+/// latency-bound, gzip is CPU-bound on inflate).
 pub(crate) trait Source: Send + Sync {
-    fn make(&self) -> Result<Box<dyn Accessor>>;
-
-    /// How many threads should be used for this backend? This is used to tune the
-    /// thread pool size for the random access reader and will depend on the primary
-    /// performance restriction (compute vs I/O)
-    fn threads(&self) -> usize;
-
-    /// Given a number of reads to be requested, what is the optimal chunk size for
-    /// parallelization? This is used to tune the chunk size for the random access reader
-    /// and will depend on the primary performance restriction (compute vs I/O)
-    fn optimal_chunk_size(&self, num_reads: usize) -> usize;
+    /// Fetch each requested byte range, returning the bytes in the same order as `ranges`.
+    ///
+    /// For best throughput `ranges` should be sorted by ascending `start`: backends read
+    /// ranges near-sequentially within a worker, which avoids re-seeking and (for gzip)
+    /// redundant decompression. Sorting is the **caller's** responsibility; correctness
+    /// does not depend on it.
+    fn fetch_byte_ranges(&self, ranges: &[ByteRange]) -> Result<Vec<Vec<u8>>>;
 }

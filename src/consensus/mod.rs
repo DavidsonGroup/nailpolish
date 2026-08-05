@@ -77,7 +77,7 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
             .build_global()?;
     }
 
-    let mut accessor = index.get_read_accessor(&paths)?;
+    let accessor = index.get_read_accessor(&paths, cli.threads)?;
 
     let mut writer = output_writer::OutputWriter::new(
         crate::utils::get_writer(cli.output.as_deref())?,
@@ -88,7 +88,7 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     let opts = FilterOpts::new(cli);
     let captures = index.captures();
 
-    let buffer_chunk_size = 1024 * cli.threads; // number of groups to multithread at one time
+    let buffer_chunk_size = 1024 * cli.threads * 4; // number of groups to multithread at one time
 
     let indices = match &cli.sort_by {
         Some(tag) => {
@@ -101,15 +101,13 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     };
 
     for chunk in &index.groups_by_index(&indices).chunks(buffer_chunk_size) {
-        let chunk_groups = chunk
+        let chunk: Vec<_> = chunk.into_iter().collect();
+
+        let chunk_groups = accessor
+            .fetch_groups(&chunk)?
             .into_iter()
-            .map(|group_loc| -> Result<Vec<_>> {
-                let reads = accessor.fetch_group(&group_loc)?;
-                let groups = process_group_locations(&group_loc, reads, &opts);
-                Ok(groups)
-            })
-            .flatten_ok()
-            .collect::<Result<Vec<_>>>()?;
+            .flat_map(|(group_loc, reads)| process_group_locations(group_loc, reads, &opts))
+            .collect::<Vec<_>>();
 
         process_groups_parallel(&chunk_groups, cli, captures, &mut writer)?;
     }

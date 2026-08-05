@@ -23,9 +23,7 @@ use rkyv::{
 use smallvec::{smallvec, SmallVec};
 
 use crate::io::index::record_identifier::ArchivedRecordIdentifier;
-use crate::io::reads::gzipped::GzippedFileReader;
-use crate::io::reads::uncompressed::UncompressedFileReader;
-use crate::io::reads::GroupedReadsAccessor;
+use crate::io::reads::RandomAccessReader;
 use crate::utils::deserialize_standard;
 
 use metadata::IndexMetadata;
@@ -198,23 +196,18 @@ impl ArchivedIndex {
         &self.groups
     }
 
-    /// Get an read accessor that can perform filesystem operations and read the original reads
+    /// Get a batched, parallel read accessor that can perform filesystem operations and
+    /// read the original reads. `compute_threads` sizes the gzip backend's thread pool
+    /// (one inflate per core); it is unused by the plain backend, which is latency- not
+    /// CPU-bound.
     pub fn get_read_accessor(
         &self,
         index_path: &FileIndexPath,
-    ) -> Result<Box<dyn GroupedReadsAccessor>> {
+        compute_threads: usize,
+    ) -> Result<RandomAccessReader> {
         let fastq_path = index_path.fastq();
-
-        if crate::utils::is_gzip_file(fastq_path) {
-            let reader = GzippedFileReader::new(fastq_path).with_context(|| {
-                format!("Error reading gzipped read file {}", fastq_path.display())
-            })?;
-            Ok(Box::new(reader))
-        } else {
-            let reader = UncompressedFileReader::new(fastq_path)
-                .with_context(|| format!("Error reading read file {}", fastq_path.display()))?;
-            Ok(Box::new(reader))
-        }
+        RandomAccessReader::new(fastq_path, compute_threads)
+            .with_context(|| format!("Error reading read file {}", fastq_path.display()))
     }
 
     /// Retrieves a duplicate group by its ID.

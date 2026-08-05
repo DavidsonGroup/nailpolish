@@ -14,7 +14,7 @@ use regex::Regex;
 use thiserror::Error;
 
 use super::{storage::FileIndexPath, Index, ReadLocation, RecordIdentifier};
-use crate::io::reads::{QualityCompute, SequentialIndexedReader};
+use crate::io::reads::{QualityCompute, SequentialReader};
 
 /// Constructs an index file for a FASTQ file, extracting barcodes and UMIs
 /// from read headers using either a regex pattern or a cluster file
@@ -39,7 +39,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
 
     let total_bytes = metadata.len();
 
-    let mut reader = SequentialIndexedReader::from_path(path.fastq())?;
+    let mut reader = SequentialReader::from_path(path.fastq())?;
     let mut index = Index::new(path);
 
     let size_formatter = FormatSizeOptions::from(humansize::BINARY)
@@ -134,7 +134,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
 
 /// Process FASTQ reads using a regex to extract identifiers from headers
 fn iter_lines_with_regex<F>(
-    reader: &mut SequentialIndexedReader,
+    reader: &mut SequentialReader,
     re: &regex::Regex,
     skip_unmatched: bool,
     mut callback: F,
@@ -190,7 +190,7 @@ where
 }
 
 fn iter_lines_with_cluster_file<F, R>(
-    reader: &mut SequentialIndexedReader,
+    reader: &mut SequentialReader,
     mut rdr: csv::Reader<R>,
     skip_unmatched: bool,
     mut callback: F,

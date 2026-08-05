@@ -15,12 +15,12 @@ use crate::io::index::FileIndexPath;
 /// A reader that handles both uncompressed and gzip-compressed FASTQ files
 /// during sequential indexing operations. For gzip files, it builds an index
 /// progressively as the file is read.
-pub enum SequentialIndexedReader {
+pub enum SequentialReader {
     Uncompressed(BufReader<File>),
     Gzipped(BufReader<GzIndexBuilder<File, File>>),
 }
 
-impl SequentialIndexedReader {
+impl SequentialReader {
     /// Creates a new reader for an uncompressed FASTQ file
     pub fn new_uncompressed(file: File) -> Self {
         Self::Uncompressed(BufReader::new(file))
@@ -72,7 +72,7 @@ impl SequentialIndexedReader {
     }
 }
 
-impl BufRead for SequentialIndexedReader {
+impl BufRead for SequentialReader {
     fn fill_buf(&mut self) -> Result<&[u8]> {
         match self {
             Self::Uncompressed(reader) => reader.fill_buf(),
@@ -88,7 +88,7 @@ impl BufRead for SequentialIndexedReader {
     }
 }
 
-impl std::io::Read for SequentialIndexedReader {
+impl std::io::Read for SequentialReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         match self {
             Self::Uncompressed(reader) => reader.read(buf),
@@ -97,7 +97,7 @@ impl std::io::Read for SequentialIndexedReader {
     }
 }
 
-impl Seek for SequentialIndexedReader {
+impl Seek for SequentialReader {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         match self {
             Self::Uncompressed(reader) => reader.seek(pos),

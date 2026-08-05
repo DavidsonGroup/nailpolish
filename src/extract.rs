@@ -91,8 +91,8 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
 
     let allowed_groups = allowed_ids.iter().map(|id| index.get_by_id(*id));
 
-    let mut accessor = index
-        .get_read_accessor(&paths)
+    let accessor = index
+        .get_read_accessor(&paths, 1)
         .context("Failed to create read accessor")?;
 
     let mut writer = crate::utils::get_writer(args.output.as_deref())?;
@@ -100,14 +100,20 @@ pub fn extract(args: &crate::cli::ExtractArgs) -> anyhow::Result<()> {
     if args.format == PresetOutputFormats::Fastq {
         for group in allowed_groups {
             let group = group.context("Group does not exist")?;
-            let reads_u8 = accessor.fetch_reads(&filter_reads(&group.reads))?.concat();
+            let filtered = filter_reads(&group.reads);
+            let reads_u8 = accessor
+                .fetch_reads(&filtered.iter().collect::<Vec<&ReadLocation>>())?
+                .concat();
 
             writer.write_all(&reads_u8)?;
         }
     } else if args.format == PresetOutputFormats::Fasta {
         for group in allowed_groups {
             let group = group.context("Group does not exist")?;
-            let reads_u8 = accessor.fetch_reads(&filter_reads(&group.reads))?.concat();
+            let filtered = filter_reads(&group.reads);
+            let reads_u8 = accessor
+                .fetch_reads(&filtered.iter().collect::<Vec<&ReadLocation>>())?
+                .concat();
 
             let mut reader = FastqReader::new(Cursor::new(reads_u8));
             while let Some(read) = reader.next() {

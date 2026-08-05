@@ -6,11 +6,6 @@
 use std::env;
 
 lazy_static::lazy_static! {
-    pub static ref READ_BUF_CAPACITY: usize = get_env_usize(
-        "NP_READ_BUF_CAPACITY",
-        128 * 1024,
-        "read buffer capacity"
-    );
     pub static ref WRITE_BUF_CAPACITY: usize = get_env_usize(
         "NP_WRITE_BUF_CAPACITY",
         128 * 1024,

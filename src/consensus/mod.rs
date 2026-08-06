@@ -28,11 +28,16 @@ mod output_writer;
 
 type ArchivedCaptures = ArchivedVec<ArchivedOption<ArchivedString>>;
 
-// CN: perf-optimization; thread-local AlignmentEngine to avoid creating new engine per consensus_call
+fn new_alignment_engine() -> AlignmentEngine {
+    AlignmentEngine::new(AlignmentType::kOV, 5, -4, -8, -6, -10, -4)
+}
+
+// the engine is reset after every consensus call so that `storage_size()` reports that
+// group's peak rather than a run-wide high-water mark (spoa's internal Realloc is grow-only
+// and never shrinks). This defeats the purpose of the thread-local — every group now pays a
+// full DP-matrix realloc — so revert before taking timings.
 thread_local! {
-    static ALIGNMENT_ENGINE: RefCell<AlignmentEngine> = RefCell::new(
-        AlignmentEngine::new(AlignmentType::kOV, 5, -4, -8, -6, -10, -4)
-    );
+    static ALIGNMENT_ENGINE: RefCell<AlignmentEngine> = RefCell::new(new_alignment_engine());
 }
 
 /// Helper function to get access to the thread-local AlignmentEngine
@@ -297,6 +302,24 @@ fn process_consensus_reads(
     }
 
     let result = generate_consensus_output(&mut clusters, &header_builder)?;
+
+    // determine whether we should regenerate the engine
+    // the alignment engine reallocates internal memory but never shrinks it;
+    // this means that the memory allocation is always capped at the highest value,
+    // which is not ideal for long runs with many groups of varying sizes.
+    // instead, we reset the alignment engine when memory usage exceeds a threshold
+    // Note: this feature is currently disabled due to effects on performance
+    // TODO: consider re-enabling gated under a --restrict-memory flag or similar, with
+    //       performance tradeoffs documented
+
+    // with_alignment_engine(|engine| {
+    //     let storage_size = engine.storage_size();
+    //     const THRESHOLD: u64 = 1024 * 1024 * 1024; // 1024 GiB
+    //     if storage_size > THRESHOLD {
+    //         *engine = new_alignment_engine();
+    //         // std::hint::black_box(storage_size);
+    //     }
+    // });
 
     Ok((
         result,

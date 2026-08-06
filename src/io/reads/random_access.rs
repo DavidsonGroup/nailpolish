@@ -8,7 +8,8 @@ use std::path::Path;
 use anyhow::{ensure, Result};
 
 use crate::io::index::{DuplicateGroupLocation, FileIndexPath, ReadLocation};
-use crate::io::reads::backends::{gzip::GzipSource, plain::PlainSource, ByteRange, Source};
+use crate::io::reads::backends::{gzip::GzipSource, plain::PlainSource, Source};
+use crate::utils::ByteRange;
 
 /// Parallel random-access reader. The underlying source owns a dedicated thread pool,
 /// distinct from the rayon pool used for consensus calling, so core count can be tuned for
@@ -75,13 +76,7 @@ impl RandomAccessReader {
         // eliminates reseek/decompression if reads are near-sequential
         tagged_reads.sort_unstable_by_key(|(_, r)| r.pos());
 
-        let ranges: Vec<ByteRange> = tagged_reads
-            .iter()
-            .map(|(_, r)| ByteRange {
-                start: r.pos(),
-                end: r.pos() + r.byte_len() as u64,
-            })
-            .collect();
+        let ranges: Vec<ByteRange> = tagged_reads.iter().map(|(_, r)| r.to_range()).collect();
 
         // the backend handles parallelisation; results come back in request order
         let data = self.src.fetch_byte_ranges(&ranges)?;

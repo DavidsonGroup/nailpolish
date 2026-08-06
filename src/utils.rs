@@ -9,6 +9,20 @@ use std::path::Path;
 
 use anyhow::Result;
 
+/// A half-open byte range `[start, end)` within the uncompressed data stream.
+#[derive(Copy, Clone)]
+pub struct ByteRange {
+    pub start: u64,
+    pub end: u64,
+}
+
+impl ByteRange {
+    /// Length of the range in bytes, as expected by [`Accessor::read`].
+    pub(crate) fn len(&self) -> u32 {
+        (self.end - self.start) as u32
+    }
+}
+
 /// Calculates a running average when a new value is added to an existing average
 pub(crate) fn running_avg(existing: f32, new: f32, new_count: usize) -> f32 {
     let new_count = new_count as f32;
@@ -54,11 +68,10 @@ pub(crate) fn deserialize_standard<T>(
 pub(crate) fn is_gzip_file(path: &Path) -> bool {
     if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
         let name_lower = file_name.to_lowercase();
-        name_lower.ends_with(".gz") || 
-        name_lower.ends_with(".fastq.gz") || 
-        name_lower.ends_with(".fq.gz")
+        name_lower.ends_with(".gz")
+            || name_lower.ends_with(".fastq.gz")
+            || name_lower.ends_with(".fq.gz")
     } else {
         false
     }
 }
-

@@ -4,8 +4,8 @@
 // where you made use of it for any part of the data analysis.
 
 pub mod construct;
-pub mod prepare;
 pub mod metadata;
+pub mod prepare;
 pub mod record_identifier;
 pub mod storage;
 
@@ -24,7 +24,7 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::io::index::record_identifier::ArchivedRecordIdentifier;
 use crate::io::reads::RandomAccessReader;
-use crate::utils::deserialize_standard;
+use crate::utils::{deserialize_standard, ByteRange};
 
 use metadata::IndexMetadata;
 pub use record_identifier::RecordIdentifier;
@@ -48,6 +48,13 @@ impl ReadLocation {
 
     pub fn byte_len(&self) -> u32 {
         self._byte_len
+    }
+
+    pub fn to_range(&self) -> ByteRange {
+        ByteRange {
+            start: self._pos,
+            end: self._pos + self._byte_len as u64,
+        }
     }
 }
 

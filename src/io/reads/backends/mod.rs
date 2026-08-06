@@ -3,6 +3,7 @@
 // We also ask that you cite this software in publications
 // where you made use of it for any part of the data analysis.
 
+use crate::utils::ByteRange;
 use anyhow::Result;
 
 pub(crate) mod gzip;
@@ -12,16 +13,17 @@ pub(crate) trait Accessor: Send {
     fn read(&mut self, off: u64, len: u32) -> Result<Vec<u8>>;
 }
 
-/// A half-open byte range `[start, end)` within the uncompressed data stream.
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct ByteRange {
-    pub start: u64,
-    pub end: u64,
+/// A contiguous span of the file covering one or more requested ranges. The span is read with
+/// a single `pread`; each covered range is then copied out of the chunk buffer.
+struct Chunk<'a> {
+    start: u64,
+    end: u64,
+    ranges: &'a [ByteRange],
 }
 
-impl ByteRange {
-    /// Length of the range in bytes, as expected by [`Accessor::read`].
-    pub(crate) fn len(&self) -> u32 {
+impl Chunk<'_> {
+    /// Length of the span in bytes, as expected by [`Accessor::read`].
+    fn len(&self) -> u32 {
         (self.end - self.start) as u32
     }
 }

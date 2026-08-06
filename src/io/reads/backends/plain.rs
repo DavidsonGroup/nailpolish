@@ -3,8 +3,6 @@
 // We also ask that you cite this software in publications
 // where you made use of it for any part of the data analysis.
 
-//! Plain (uncompressed) random-access backend.
-
 use std::cell::RefCell;
 use std::fs::File;
 use std::path::Path;
@@ -13,12 +11,11 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 
-use super::{Accessor, ByteRange, Source};
+use super::{Accessor, Chunk, Source};
+use crate::utils::ByteRange;
 
-/// Plain files are latency-bound: each read is a network round-trip of a few hundred
-/// microseconds, and threads waiting on one are parked, not running. A high thread
-/// count gives queue depth against that latency.
-const PLAIN_THREADS: usize = 128;
+const PLAIN_THREADS: usize = 64;
+const PLAIN_MAX_SPAN: u64 = 64 * 1024;
 
 thread_local! {
     static ACCESSOR: RefCell<Option<PlainAccessor>> = const { RefCell::new(None) };
@@ -41,6 +38,38 @@ fn with_accessor<T>(src: &PlainSource, f: impl FnOnce(&mut PlainAccessor) -> T) 
 
         f(accessor)
     })
+}
+
+/// Group `ranges` into contiguous spans, each no wider than `max_span`, so that a run of
+/// nearby ranges can be serviced by a single read instead of one read per range.
+/// The input ranges are assumed to be sorted by ascending `start`.
+fn coalesce(ranges: &[ByteRange], max_span: u64) -> Vec<Chunk<'_>> {
+    let mut chunks: Vec<Chunk> = Vec::new();
+    let mut chunk_start = 0;
+
+    for (i, range) in ranges.iter().enumerate() {
+        if let Some(open) = chunks.last_mut() {
+            let fits =
+                range.start >= open.start && range.end.saturating_sub(open.start) <= max_span;
+            if fits {
+                open.end = open.end.max(range.end);
+                open.ranges = &ranges[chunk_start..=i];
+                continue;
+            }
+        }
+
+        // the open chunk (if any) cannot take this range: close it and start a new one. A
+        // range wider than `max_span` on its own still gets a chunk to itself, since the span
+        // is only checked against a chunk which already holds a range.
+        chunk_start = i;
+        chunks.push(Chunk {
+            start: range.start,
+            end: range.end,
+            ranges: &ranges[i..=i],
+        });
+    }
+
+    chunks
 }
 
 pub(crate) struct PlainSource {
@@ -71,40 +100,37 @@ impl PlainSource {
         })
     }
 
-    /// Given a number of reads to be requested, what is the optimal chunk size for
-    /// parallelization?
-    fn optimal_chunk_size(&self, num_reads: usize) -> usize {
-        // optimally, split the number of reads into as many chunks as there are threads,
-        // but don't make the chunks smaller than 1 read each.
-        let n = PLAIN_THREADS.min(num_reads).max(1);
-        num_reads.div_ceil(n)
+    fn fetch_chunk(&self, accessor: &mut dyn Accessor, chunk: &Chunk) -> Result<Vec<Vec<u8>>> {
+        let buffer = accessor.read(chunk.start, chunk.len())?;
+
+        chunk
+            .ranges
+            .iter()
+            .map(|range| {
+                let from = (range.start - chunk.start) as usize;
+                Ok(buffer[from..from + range.len() as usize].to_vec())
+            })
+            .collect()
     }
 }
 
 impl Source for PlainSource {
     fn fetch_byte_ranges(&self, ranges: &[ByteRange]) -> Result<Vec<Vec<u8>>> {
-        let chunk_size = self.optimal_chunk_size(ranges.len());
+        if ranges.is_empty() {
+            return Ok(Vec::new());
+        }
 
-        // create output buffer with slots for each read
-        let mut output: Vec<Vec<u8>> = vec![Vec::new(); ranges.len()];
+        // merge nearby ranges so that each chunk costs a single round-trip
+        let chunks = coalesce(ranges, PLAIN_MAX_SPAN);
 
-        // parallelize the read requests in chunks, each chunk serviced by a single thread
-        // Rayon handles work-stealing and load balancing across threads
-        self.pool.install(|| -> Result<()> {
-            output
-                .par_chunks_mut(chunk_size)
-                .zip(ranges.par_chunks(chunk_size))
-                .try_for_each(|(out_chunk, range_chunk)| -> Result<()> {
-                    with_accessor(self, |accessor| {
-                        for (out_slot, range) in out_chunk.iter_mut().zip(range_chunk) {
-                            *out_slot = accessor.read(range.start, range.len())?;
-                        }
-                        Ok(())
-                    })
-                })
-        })?;
+        let output: Vec<Vec<Vec<u8>>> = self.pool.install(|| {
+            chunks
+                .par_iter()
+                .flat_map(|chunk| with_accessor(self, |accessor| self.fetch_chunk(accessor, chunk)))
+                .collect()
+        });
 
-        Ok(output)
+        Ok(output.into_iter().flatten().collect())
     }
 }
 

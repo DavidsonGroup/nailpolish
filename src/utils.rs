@@ -42,6 +42,27 @@ where
     }
 }
 
+/// Formats an integer with `,` thousands separators, e.g. `3030565` -> `3,030,565`.
+pub(crate) fn fmt_count(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+
+    // the leading group holds the leftover digits; every group after it is three
+    // wide. digits are always ASCII, so splitting on byte offsets is safe.
+    let first = (digits.len() - 1) % 3 + 1;
+    let (head, mut rest) = digits.split_at(first);
+    out.push_str(head);
+
+    while !rest.is_empty() {
+        let (chunk, tail) = rest.split_at(3);
+        out.push(',');
+        out.push_str(chunk);
+        rest = tail;
+    }
+
+    out
+}
+
 /// Returns a writer to the given path or stdout if no path is provided.
 pub(crate) fn get_writer(path: Option<&Path>) -> Result<Box<dyn std::io::Write>> {
     let writer: Box<dyn std::io::Write> = match path {
@@ -73,5 +94,26 @@ pub(crate) fn is_gzip_file(path: &Path) -> bool {
             || name_lower.ends_with(".fq.gz")
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fmt_count;
+
+    #[test]
+    fn fmt_count_groups_digits_from_the_right() {
+        // group boundaries: each length mod 3 has a different leading group
+        assert_eq!(fmt_count(0), "0");
+        assert_eq!(fmt_count(7), "7");
+        assert_eq!(fmt_count(12), "12");
+        assert_eq!(fmt_count(123), "123");
+        assert_eq!(fmt_count(1234), "1,234");
+        assert_eq!(fmt_count(12345), "12,345");
+        assert_eq!(fmt_count(123456), "123,456");
+        assert_eq!(fmt_count(1234567), "1,234,567");
+        assert_eq!(fmt_count(3030565), "3,030,565");
+        // zeroes within a group must be preserved
+        assert_eq!(fmt_count(1000000), "1,000,000");
     }
 }

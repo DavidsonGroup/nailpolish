@@ -151,7 +151,7 @@ jobs:
         with:
           tag: nightly
           commit: ${{ github.sha }}
-          name: "Nightly build (${{ env.SHORT_SHA }})"
+          name: "Nightly build"
           prerelease: true
           makeLatest: false
           allowUpdates: true
@@ -159,5 +159,5 @@ jobs:
           artifactErrorsFailBuild: true
           artifacts: "artifacts/nailpolish-linux-x86_64/nailpolish,artifacts/nailpolish-macos-universal/nailpolish-macos-universal"
           body: |
-            Automated **nightly build**, which always points at the most recent `develop` commit. This build is from
+            Automated nightly build, which always points at the most recent `develop` commit. This build is from
             [`${{ env.SHORT_SHA }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}).

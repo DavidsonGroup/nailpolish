@@ -11,6 +11,8 @@ extern crate env_logger;
 #[macro_use]
 extern crate log;
 
+use std::io::Write;
+
 use anyhow::Result;
 use clap::Parser;
 use itertools::Itertools;
@@ -71,8 +73,39 @@ fn try_main() -> Result<()> {
     // initialise logger
     let default_level = if cli.debug { "debug" } else { "info" };
 
+    // format: local 24-hour time in brackets, then the message. the level tag is
+    // omitted for INFO and printed after the bracket otherwise. every line of a
+    // multi-line record is prefixed, so continuation lines don't dangle.
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(default_level))
-        .format_target(false)
+        .format(move |buf, record| {
+            let time = chrono::Local::now().format("%H:%M:%S");
+
+            let tag = if record.level() == log::Level::Info {
+                String::new()
+            } else {
+                let style = buf.default_level_style(record.level());
+                format!("{style}{:<5}{style:#} ", record.level())
+            };
+
+            let message = record.args().to_string();
+
+            for line in message.lines() {
+                if line.is_empty() {
+                    // no trailing whitespace on spacer lines
+                    writeln!(buf, "[{time}]")?;
+                } else {
+                    writeln!(buf, "[{time}] {tag}{line}")?;
+                }
+            }
+
+            // `lines()` yields nothing for an empty message, but the record was
+            // still emitted, so give it a line of its own
+            if message.is_empty() {
+                writeln!(buf, "[{time}]")?;
+            }
+
+            Ok(())
+        })
         .init();
 
     // start with version information, if a command has been run

@@ -64,7 +64,6 @@ impl IndexMetadata {
     pub fn report_read_counts(&self) {
         info!(
             indoc::indoc! {"
-                
                 Statistics:
                   {} reads in total
                   {} valid

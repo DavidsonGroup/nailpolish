@@ -51,6 +51,29 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
     const REPORT_INTERVAL: u64 = 2 * 1024 * 1024 * 1024; // 2GB
     let mut last_report = 0;
 
+    // a formatted size is at widest `1023.9XB`; fixed so rows stay aligned even
+    // as the unit changes partway through a file
+    const BYTES_W: usize = 8;
+
+    let report = |pos: u64| {
+        let percent = if total_bytes > 0 {
+            pos as f64 / total_bytes as f64 * 100.0
+        } else {
+            0.0
+        };
+
+        let bytes = format_size(pos, size_formatter);
+        info!("{bytes:>BYTES_W$}   {percent:>5.1}%");
+    };
+
+    info!(
+        "Indexing {} from {}",
+        format_size(total_bytes, size_formatter),
+        cli.input.display()
+    );
+    info!("");
+    info!("{:>BYTES_W$}   {:>6}", "bytes", "%");
+
     let skipped = if let Some(cluster_file) = &cli.clusters {
         // Read cluster file line by line
         info!("Reading identifiers from file {}", cluster_file.display());
@@ -69,8 +92,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
 
             if pos - last_report > REPORT_INTERVAL {
                 last_report = pos;
-                #[rustfmt::skip]
-                info!("proc: {} / {}", format_size(pos, size_formatter), format_size(total_bytes, size_formatter));
+                report(pos);
             }
 
             index.add_read(key, loc, seq);
@@ -97,8 +119,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
 
             if pos - last_report > REPORT_INTERVAL {
                 last_report = pos;
-                #[rustfmt::skip]
-                info!("proc: {} / {}", format_size(pos, size_formatter), format_size(total_bytes, size_formatter));
+                report(pos);
             }
 
             index.add_read(key, loc, seq);
@@ -109,15 +130,12 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
         iter_lines_with_regex(&mut reader, &re, cli.skip_unmatched, callback)?
     };
 
-    if skipped > 0 {
-        eprintln!("{skipped} reads were skipped (not matched/found in cluster file)");
-    }
+    report(total_bytes);
+    info!("");
 
-    info!(
-        "proc: {} / {}",
-        format_size(total_bytes, size_formatter),
-        format_size(total_bytes, size_formatter)
-    );
+    if skipped > 0 {
+        warn!("{skipped} reads were skipped (not matched/found in cluster file)");
+    }
 
     let final_position = reader.stream_position()? as f64 / (1024.0 * 1024.0 * 1024.0);
 

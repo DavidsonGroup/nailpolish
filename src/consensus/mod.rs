@@ -7,6 +7,7 @@ use core::str;
 use std::cell::RefCell;
 use std::fmt::Write as StrWrite;
 use std::io::{Cursor, Write as IoWrite};
+use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result};
 use itertools::Itertools;
@@ -27,6 +28,10 @@ mod formatter;
 mod output_writer;
 
 type ArchivedCaptures = ArchivedVec<ArchivedOption<ArchivedString>>;
+
+// progress reports start frequent and back off, so long runs stay quieter
+const INITIAL_REPORT_INTERVAL: Duration = Duration::from_secs(10);
+const MAX_REPORT_INTERVAL: Duration = Duration::from_secs(180);
 
 fn new_alignment_engine() -> AlignmentEngine {
     AlignmentEngine::new(AlignmentType::kOV, 5, -4, -8, -6, -10, -4)
@@ -105,6 +110,11 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
         None => index.indices_by_default_order(),
     };
 
+    writer.report_header(indices.len());
+
+    let mut last_report = Instant::now();
+    let mut report_interval = INITIAL_REPORT_INTERVAL;
+
     for chunk in &index.groups_by_index(&indices).chunks(buffer_chunk_size) {
         let chunk: Vec<_> = chunk.into_iter().collect();
 
@@ -115,6 +125,12 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
             .collect::<Vec<_>>();
 
         process_groups_parallel(&chunk_groups, cli, captures, &mut writer)?;
+
+        if last_report.elapsed() >= report_interval {
+            writer.report_progress();
+            last_report = Instant::now();
+            report_interval = report_interval.mul_f64(1.5).min(MAX_REPORT_INTERVAL);
+        }
     }
 
     writer.finalize()

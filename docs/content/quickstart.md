@@ -22,7 +22,7 @@ _For more information, see [Install](./install.md)._
 For x64 Linux, run:
 
 ```shell
-curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/DavidsonGroup/nailpolish/releases/download/nightly_develop/nailpolish" -o nailpolish
+curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/DavidsonGroup/nailpolish/releases/download/nightly/nailpolish" -o nailpolish
 chmod +x nailpolish
 ```
 

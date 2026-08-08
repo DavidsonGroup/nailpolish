@@ -13,12 +13,12 @@
 
 `nailpolish` is distributed as a single binary with no dependencies (beyond libc).
 Up-to-date builds are available through the
-[Releases](https://github.com/DavidsonGroup/nailpolish/releases/tag/nightly_develop)
+[Releases](https://github.com/DavidsonGroup/nailpolish/releases/tag/nightly)
 section for macOS (Intel & Apple Silicon) and x64-based Linux systems.
 
 **Releases:**
-[macOS](https://github.com/DavidsonGroup/nailpolish/releases/download/nightly_develop/nailpolish-macos-universal),
-[Linux](https://github.com/DavidsonGroup/nailpolish/releases/download/nightly_develop/nailpolish)
+[macOS](https://github.com/DavidsonGroup/nailpolish/releases/download/nightly/nailpolish-macos-universal),
+[Linux](https://github.com/DavidsonGroup/nailpolish/releases/download/nightly/nailpolish)
 
 `nailpolish` is in active development. If you are running into any issues, please check to ensure that you are using
 the most current version of the software!
@@ -147,7 +147,7 @@ Print this message or the help of the given subcommand(s)
 ### Prebuilt binaries
 
 The recommended way to download Nailpolish is to use the automated builds, which can be found in the
-[Releases](https://github.com/DavidsonGroup/nailpolish/releases/tag/nightly_develop)
+[Releases](https://github.com/DavidsonGroup/nailpolish/releases/tag/nightly)
 section for macOS (Intel + Apple Silicon) and x64 Linux systems.
 
 ### Install from source

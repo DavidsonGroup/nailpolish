@@ -95,12 +95,12 @@ impl<W: IoWrite> OutputWriter<W> {
                 "reads", "%", "filtered"
             );
         } else {
-            // the bracket spans the avg and max columns, so they can be labelled
+            // the bracket spans the detection columns, so they can be labelled
             // with the bare statistic
-            info!("{:count_w$}            ┌────── per dup group ──────┐", "");
+            info!("{:count_w$}            ┌──false duplicates──┐", "");
             info!(
-                "{:>count_w$}   {:>6}   {:>13}   {:>13}   {:>count_w$}",
-                "reads", "%", "avg molecules", "max molecules", "filtered"
+                "{:>count_w$}   {:>6}   {:>10}   {:>9}   {:>count_w$}",
+                "reads", "%", "detections", "avg/group", "filtered"
             );
         }
     }
@@ -122,18 +122,20 @@ impl<W: IoWrite> OutputWriter<W> {
         if self.no_clustering {
             info!("{reads:>count_w$}   {percent:>5.1}%   {filtered:>count_w$}");
         } else {
-            // filtered groups produce no clusters, so they are excluded from the
-            // denominator rather than dragging the average below 1
+            // filtered groups yield no molecules, so they are excluded from the
+            // denominator rather than dragging the rate down
             let clustered_groups = self.processed_duplicate_groups - self.filtered_groups;
+            // every molecule beyond the first in a group is a false duplicate
+            let detections = self.processed_clusters.saturating_sub(clustered_groups);
             let avg = if clustered_groups > 0 {
-                self.processed_clusters as f64 / clustered_groups as f64
+                detections as f64 / clustered_groups as f64
             } else {
                 0.0
             };
-            let max = fmt_count(self.max_clusters);
+            let detections = fmt_count(detections);
 
             info!(
-                "{reads:>count_w$}   {percent:>5.1}%   {avg:>13.2}   {max:>13}   {filtered:>count_w$}"
+                "{reads:>count_w$}   {percent:>5.1}%   {detections:>10}   {avg:>9.2}   {filtered:>count_w$}"
             );
         }
     }
@@ -146,10 +148,19 @@ impl<W: IoWrite> OutputWriter<W> {
         }
         info!("");
 
+        let clustered_groups = self.processed_duplicate_groups - self.filtered_groups;
+
         let summary = [
             ("input reads", self.total_num_reads),
             ("duplicate groups", self.processed_duplicate_groups),
             ("total molecules", self.processed_clusters),
+            (
+                "false duplicates",
+                self.processed_clusters.saturating_sub(clustered_groups),
+            ),
+            // dropped from the progress lines, but a lone group split many ways
+            // is worth seeing at least once
+            ("largest split", self.max_clusters),
             ("filtered reads", self.filtered_reads),
         ];
 

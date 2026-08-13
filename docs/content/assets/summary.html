@@ -1,21 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,200..900;1,200..900&display=swap"
+    rel="stylesheet">
+
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <title>Bar Chart from JSON</title>
+    <title>Nailpolish Summary Report</title>
     <style>
+        html {
+            /* background-color: #beabc2; */
+            background-color: white;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: "Source Sans 3", -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, Adwaita Sans, Cantarell, Ubuntu, roboto, noto, helvetica, arial, sans-serif;
             padding: 20px;
             margin: auto;
-            max-width: 800px;
+            max-width: 1100px;
             min-height: 100%;
             background-color: white;
         }
 
-        html {
-            background-color: #beabc2;
+        h2 {
+            margin-bottom: 0;
+            font-size: 1.7em;
+            border-bottom: solid purple;
+            color: purple;
         }
 
         td {
@@ -23,245 +36,309 @@
         }
 
         td:nth-child(1) {
-            /* your stuff here */
             min-width: 150px;
         }
 
-        td:nth-child(2) {
+        #summary-table td:nth-child(2) {
             font-family: monospace;
             padding-left: 10px;
             font-size: 1.1em;
         }
 
-        canvas {
-            margin-top: 20px;
+        #tb-data {
+            font-family: monospace;
+            border-collapse: collapse;
+            text-align: left;
+            margin-top: 10px;
+            margin-right: 20px;
         }
 
-        .bar-chart-container {
-            overflow: scroll;
+        #tb-data th,
+        #tb-data td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
         }
 
-        /* Always show scrollbars */
-        ::-webkit-scrollbar {
-            -webkit-appearance: none;
-            width: 7px;
+        #tb-data th {
+            font-weight: bold;
+            background-color: #f2f2f2;
         }
 
-        ::-webkit-scrollbar-thumb {
-            border-radius: 4px;
-            background-color: rgba(0, 0, 0, .5);
-            box-shadow: 0 0 1px rgba(255, 255, 255, .5);
+        #tb-data td:first-child,
+        #tb-data th:first-child {
+            width: 80px;
         }
 
+        #tb-data tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        #tb-data tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .chart-section {
+            display: flex;
+            gap: 0px;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .chart-description {
+            flex: auto;
+            max-width: 400px;
+        }
+
+        .chart-container {
+            flex: none;
+            min-width: 0;
+        }
+
+        @media (max-width: 1000px) {
+            body {
+                max-width: 800px;
+            }
+
+            .chart-section {
+                flex-direction: column;
+            }
+
+            .chart-description {
+                flex: none;
+                max-width: none;
+                order: -1;
+            }
+        }
+
+
+        .buttons-container {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.4rem 0.9rem;
+            text-decoration: none;
+            ;
+            border-radius: 6px;
+            border: 1px solid #6c3fc5;
+            background: #f0eaf9;
+            color: #37157a;
+            transition: background 0.15s;
+        }
+
+        .button:hover {
+            background: #5530a0;
+            color: white;
+        }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.3.0/chart.umd.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <script>
-        let stats = {"total_reads":14143,"duplicate_reads":3289,"duplicate_ids":1310,"proportion_duplicate":0.23255320653326733,"distribution":{"1":10854,"2":815,"3":354,"4":115,"5":23,"6":2,"10":1}}
-        let data = stats.distribution;
-        let max_x = Math.max(...Object.keys(stats.distribution).map((x) => Number(x)));
+        let stats = { "1": { "count": 10854, "avg_len": 1020.01227, "avg_qual": 21.1289 }, "2": { "count": 815, "avg_len": 1174.2523, "avg_qual": 21.286737 }, "3": { "count": 354, "avg_len": 962.8894, "avg_qual": 21.131847 }, "4": { "count": 115, "avg_len": 959.9631, "avg_qual": 21.23172 }, "5": { "count": 23, "avg_len": 896.48694, "avg_qual": 21.386087 }, "6": { "count": 2, "avg_len": 1128.5834, "avg_qual": 20.64 }, "10": { "count": 1, "avg_len": 942.9, "avg_qual": 20.699001 } }
+        let readCount = 14143;
+
+        const THRESHOLD = 50;
+
+        // Flat array — convert stats object once, use everywhere
+        const rows = Object.entries(stats).map(([k, v]) => ({ group: +k, ...v }));
+        const filtered = rows.filter(r => r.group < THRESHOLD);
+        const sorted = [...rows].sort((a, b) => a.group - b.group);
+
+        const groupLabels = filtered.map(r => r.group);
+        const groupCounts = filtered.map(r => r.count);
+        const readCounts = filtered.map(r => r.count * r.group);
     </script>
 </head>
+
 <body>
-<h1>💅 nailpolish summary report</h1>
-<h2>Summary table</h2>
-<table>
-    <tr>
-        <td>
-            nailpolish version
-        </td>
-        <td>
-            0.1.0
-        </td>
-    </tr>
-
-    <tr>
-        <td>
-            file path
-        </td>
-        <td>
-            /Users/olliecheng/Developer/WEHI/consensus-call/duplicate-tools/scratch_quickstart/test/scmixology2_sample.fastq
-        </td>
-    </tr>
-    <tr>
-        <td>
-            dataset size
-        </td>
-        <td>
-            0.028 GB
-        </td>
-    </tr>
-    <tr>
-        <td>
-            index date
-        </td>
-        <td>
-            2024-12-05T12:53:28.557715+11:00
-        </td>
-    </tr>
-
-    <tr>
-        <td>
-            total read count
-        </td>
-        <td>
-            14143
-        </td>
-    </tr>
-    <tr>
-        <td>
-            matched reads
-        </td>
-        <td>
-            14143
-        </td>
-    </tr>
-    <tr>
-        <td>
-            unmatched reads
-        </td>
-        <td>
-            0
-        </td>
-    </tr>
-
-    <tr>
-        <td>
-            average quality
-        </td>
-        <td>
-            21.152015870930946
-        </td>
-    </tr>
-    <tr>
-        <td>
-            average length
-        </td>
-        <td>
-            1030.5793678851728
-        </td>
-    </tr>
-</table>
-<h2>
-    By UMI group
-</h2>
-
-A 'UMI group' is a group of reads which all share the same barcode and UMI.
-
-<div class="bar-chart-container">
-    <div>
-        <canvas id="byUmi"></canvas>
+    <h1>💅 Nailpolish Summary Report</h1>
+    <div class="buttons-container">
+        <a class="button" href="https://davidsongroup.github.io/nailpolish" target="_blank" rel="noopener">
+            Documentation
+        </a>
+        <a class="button" href="https://github.com/DavidsonGroup/nailpolish" target="_blank" rel="noopener">
+            Nailpolish on GitHub
+        </a>
+        <a class="button" href="https://github.com/DavidsonGroup" target="_blank" rel="noopener">
+            DavidsonGroup on GitHub
+        </a>
     </div>
-</div>
+    <h2>Summary table</h2>
+    <table id="summary-table">
+        <tr>
+            <td>Nailpolish version</td>
+            <td>nailpolish v0.2.2, commit #65a177c-modified</td>
+        </tr>
+        <tr>
+            <td>File path</td>
+            <td>scmixology2_sample.fastq</td>
+        </tr>
+        <tr>
+            <td>Dataset size</td>
+            <td>0.02817634679377079 GB</td>
+        </tr>
+        <tr>
+            <td>Index date</td>
+            <td>2026-08-13T16:17:08.927358+10:00</td>
+        </tr>
+        <tr>
+            <td>Total read count</td>
+            <td>14143</td>
+        </tr>
+        <tr>
+            <td>Reads with barcodes</td>
+            <td>14143</td>
+        </tr>
+        <tr>
+            <td>Reads without barcodes<br />(ignored from consensus calling)</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>Average quality</td>
+            <td>21.152048110961914</td>
+        </tr>
+        <tr>
+            <td>Average length</td>
+            <td>1030.5797119140625</td>
+        </tr>
+    </table>
 
-<h2>
-    By read
-</h2>
-
-Each read is classified by the number of reads in its corresponding UMI group.
-
-<div class="bar-chart-container">
-    <div>
-        <canvas id="byRead"></canvas>
+    <h2>By duplicate group</h2>
+    <div class="chart-section">
+        <div class="chart-container">
+            <div id="byUmi"></div>
+        </div>
+        <div class="chart-description">
+            <p>A 'duplicate group' is a group of reads which all share the same barcode and UMI.</p>
+            <p>There are <span id="groupCount">calculating...</span> total duplicate group(s). Only groups with
+                &lt;<span class="threshold-ind"></span> duplicates are shown in the graph.</p>
+            <p>
+                <strong>Note.</strong> Some reads will share a molecular identifier despite originating from different
+                molecules (i.e. false duplicates). They are represented together as duplicate groups in this chart.
+                Nailpolish's false clustering algorithm will be applied during consensus calling to identify and
+                separate these reads into distinct groups. As a result, the final number of groups (and their size
+                distribution) in the consensus calling output may differ.
+            </p>
+        </div>
     </div>
-</div>
 
+    <h2>By read</h2>
+    <div class="chart-section">
+        <div class="chart-container">
+            <div id="byRead"></div>
+        </div>
+        <div class="chart-description">
+            <p>Each read is classified by the number of reads in its corresponding duplicate group.</p>
+            <p>There are <span id="readCount">calculating...</span> total reads. Only reads belonging to groups with
+                &lt;<span class="threshold-ind"></span> duplicates are shown in the graph.</p>
+        </div>
+    </div>
 
-<script>
-    const umi_dup_data = {
-        "labels": Object.keys(data),
-        "datasets": [{
-            label: "",
-            // "label": "duplicate count",
-            // "backgroundcolor": "rgba(75, 192, 192, 0.2)",
-            // "bordercolor": "rgba(75, 192, 192, 1)",
-            "data": Object.values(data)
-        }]
-    };
+    <h2>Tabulated duplicate groups</h2>
+    <div class="chart-section">
+        <div class="chart-container">
+            <table id="tb-data">
+                <thead>
+                    <tr>
+                        <th>Group Size</th>
+                        <th>Number of Groups</th>
+                        <th>Number of Reads</th>
+                        <th>Average Length</th>
+                        <th>Average Quality</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="chart-description">
+            <p>This table shows the full distribution of duplicate group sizes across the dataset.</p>
+            <p>Each row corresponds to a group size (number of reads sharing the same barcode and UMI), along with the
+                number of such groups, total reads, and average read length and quality within that group size.</p>
+            <h4>Consensus calling thresholds</h4>
+            <ul>
+                <li>
+                    All reads without an identified barcode cannot be grouped into duplicate groups and will be
+                    reproduced as-is in the consensus calling output, but are not included in the above graphs or table
+                </li>
+                <li>
+                    <code>--len</code> (default 0,15000): does not consensus call reads with length outside the
+                    specified range; these reads are reproduced as-is in the consensus calling output
+                </li>
+                <li>
+                    <code>--qual</code> (default unset): does not consensus call reads with mean quality outside the
+                    specified range; these reads are reproduced as-is in the consensus calling output
+                </li>
+                <li>
+                    <code>--max-group-size</code> (default 250): does not consensus call reads belonging to duplicate
+                    groups larger than the specified size. Typically, very large groups are false duplicates and
+                    consensus calling them has an outsized impact on runtime. These reads are reproduced as-is in the
+                    consensus
+                    calling
+                    output
+                </li>
+            </ul>
+        </div>
+    </div>
 
-    const ctxUmi = document.getElementById('byUmi').getContext('2d');
-    let umiChart = new Chart(ctxUmi, {
-        type: 'bar',
-        data: umi_dup_data,
-        options: {
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'nearest',
-                axis: 'x'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-            },
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true
-                },
-                x: {
-                    grace: 0,
-                    offset: false,
-                    beginAtZero: true,
-                    title: "Duplicate count",
-                    type: "linear"
-                }
-            }
+    <script>
+        const plotLayout = {
+            margin: { t: 10, b: 40 },
+            yaxis: { autorange: 'reversed', dtick: 1, title: 'Duplicate count' },
+            // xaxis: { title: '' },
+            height: Math.max(600, 50 * groupLabels.length)
+        };
+
+        const totalGroups = groupCounts.reduce((a, b) => a + b, 0);
+        const totalReads = readCounts.reduce((a, b) => a + b, 0);
+
+        const pct = (vals, total) => vals.map(v => {
+            const p = v / total * 100;
+            return p < 0.5 ? '< 0.5%' : (Math.round(p * 10) / 10) + '%';
+        });
+
+        Plotly.newPlot('byUmi', [{
+            type: 'bar',
+            orientation: 'h',
+            x: groupCounts,
+            y: groupLabels,
+            name: 'Group count',
+            text: pct(groupCounts, totalGroups),
+            textposition: 'auto',
+            cliponaxis: false
+        }], { ...plotLayout, xaxis: { title: 'Group count', range: [0, Math.max(...groupCounts)] }, cliponaxis: false });
+
+        Plotly.newPlot('byRead', [{
+            type: 'bar',
+            orientation: 'h',
+            x: readCounts,
+            y: groupLabels,
+            name: 'Read count',
+            text: pct(readCounts, totalReads),
+            textposition: 'auto',
+        }], { ...plotLayout, xaxis: { title: 'Read count', range: [0, Math.max(...readCounts)] }, cliponaxis: false });
+
+        // Update threshold indicators and counts
+        document.querySelectorAll('.threshold-ind').forEach(el => el.textContent = THRESHOLD);
+        document.getElementById('groupCount').textContent = totalGroups;
+        document.getElementById('readCount').textContent = totalReads;
+
+        // Populate table
+        const tbody = document.querySelector('#tb-data tbody');
+        for (const r of sorted) {
+            const row = tbody.insertRow();
+            row.innerHTML = `
+            <td>${r.group}</td>
+            <td>${r.count}</td>
+            <td>${r.count * r.group}</td>
+            <td>${r.avg_len.toFixed(2)}</td>
+            <td>${r.avg_qual.toFixed(2)}</td>
+        `;
         }
-    });
-
-    let read_data = Object.fromEntries(Object.entries(data).map(([k, v]) => ([k, v * k])));
-
-    const read_dup_data = {
-        "labels": Object.keys(read_data),
-        "datasets": [{
-            label: "",
-            // "label": "duplicate count",
-            // "backgroundcolor": "rgba(75, 192, 192, 0.2)",
-            // "bordercolor": "rgba(75, 192, 192, 1)",
-            "data": Object.values(read_data)
-        }]
-    };
-
-    const ctxRead = document.getElementById('byRead').getContext('2d');
-    let readChart = new Chart(ctxRead, {
-        type: 'bar',
-        data: read_dup_data,
-        options: {
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'nearest',
-                axis: 'x'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-            },
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true
-                },
-                x: {
-                    grace: 0,
-                    offset: false,
-                    beginAtZero: true,
-                    title: "Duplicate count",
-                    type: "linear"
-                }
-            }
-        }
-    });
-
-
-    umiChart.canvas.parentNode.style.height = '400px';
-    umiChart.canvas.parentNode.style.width = 15 * max_x + "px";
-
-
-    readChart.canvas.parentNode.style.height = '400px';
-    readChart.canvas.parentNode.style.width = 15 * max_x + "px";
-</script>
+    </script>
 </body>
+
 </html>

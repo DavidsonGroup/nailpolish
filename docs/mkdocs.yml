@@ -9,8 +9,10 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.expand
+    - navigation.tabs.sticky
     - search.highlight
     - content.code.copy
+    - content.tabs.link
   font:
     text: Fira Sans
   palette:
@@ -36,6 +38,9 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight
   - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
   - attr_list
 
 docs_dir: content
@@ -53,3 +58,4 @@ nav:
       - nailpolish consensus: commands/consensus.md
       - nailpolish extract: commands/extract.md
       - nailpolish summary: commands/summary.md
+  - Patterns: patterns.md

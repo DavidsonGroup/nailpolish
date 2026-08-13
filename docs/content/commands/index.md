@@ -26,27 +26,26 @@ Arguments:
           [default: bc-umi]
 
           Possible values:
-          - bc-umi:           @BARCODE_UMI format as produced by Flexiplex for 10x3 chemistry
-          - umi-tools:        `_<UMI>` format as produced by `umi-tools extract`
-          - illumina:         bcl2fastq format, which has `:<UMI>` at the end of the read ID
-          - sam-tagged-cb-ub: .sam tag format with barcode and UMI (CB:Z and UB:Z tags)
-          - sam-tagged-cb:    .sam tag format with barcode only (CB:Z tag)
+          - bc-umi:    @BARCODE_UMI format as produced by Flexiplex for 10x3 chemistry
+          - umi-tools: `_<UMI>` format as produced by `umi-tools extract`
+          - illumina:  bcl2fastq format, which has `:<UMI>` at the end of the read ID
+          - tag-cbub:  .sam tag format with barcode and UMI, which uses the :CB:Z:____ and :UB:Z:____ tag format
+          - tag-cb:    .sam tag format with only barcode, which uses the :CB:Z:___ format
 
 Options:
       --overwrite
           overwrite an existing index file, if it exists
 
       --clusters <CLUSTERS>
-          use a file containing pre-clustered reads. the file must be semicolon-delimited
-          with a header line, where the first column is the read ID and subsequent columns
-          are tag names. for example:
+          whether to use a file containing pre-clustered reads, as a semicolon-separated tabular file.
             read_id;CB;UB
             READ_HEADER_1;BARCODE1;UMI1
+            READ_HEADER_2;BARCODE2;UMI2
 
       --barcode-regex <BARCODE_REGEX>
           barcode regex format type, for custom header styles. this will override the preset given.
           for example, for the `bc-umi` preset:
-              ^(?<CB>[ATCGNX]{16})_(?<UB>[ATCGNX]{12})
+              ^([ATCG]{16})_([ATCG]{12})
 
       --skip-unmatched
           skip, instead of error, on reads which are not accounted for:
@@ -78,14 +77,14 @@ If your reads come from an alignment pipeline that annotates reads with SAM tags
 
 ```bash
 # reads tagged with both CB (cell barcode) and UB (UMI)
-nailpolish index reads.fastq sam-tagged-cb-ub
+nailpolish index reads.fastq tag-cbub
 
 # reads tagged with CB only (no UMI)
-nailpolish index reads.fastq sam-tagged-cb
+nailpolish index reads.fastq tag-cb
 ```
 
 These presets extract tags from the read comment field, which in FASTQ format carries the SAM auxiliary tags
-(e.g., `\t:CB:Z:ATCGATCG\t:UB:Z:TTTTTTTT`).
+(e.g., `\tCB:Z:ATCGATCG\tUB:Z:TTTTTTTT`).
 
 ### Pre-clustered reads from isONclust
 
@@ -119,9 +118,9 @@ These are useful when the header of each read contains information about the bar
 - `illumina`: read headers look like this: `SIM:1:FCX:1:2106:15337:1063:ATCGATCGATCG 1:N:0:ATCACG` where `ATCGATCGATCG`
   is the UMI sequence.
   This is the default UMI header format produced by tools such as `bcl2fastq`.
-- `sam-tagged-cb-ub`: reads carry both a cell barcode (`CB:Z:`) and UMI (`UB:Z:`) as SAM auxiliary tags
+- `tag-cbub`: reads carry both a cell barcode (`CB:Z:`) and UMI (`UB:Z:`) as SAM auxiliary tags
   in the read comment field.
-- `sam-tagged-cb`: reads carry only a cell barcode (`CB:Z:`) as a SAM auxiliary tag.
+- `tag-cb`: reads carry only a cell barcode (`CB:Z:`) as a SAM auxiliary tag.
 
 ### Barcode regex
 
@@ -129,7 +128,7 @@ For reads where barcodes and UMIs are contained in the header, in an esoteric fo
 can be provided through the `--barcode-regex <BARCODE_REGEX>` parameter. As examples, here are the regular expressions
 for the presets above:
 
-- `bc-umi`: `--barcode-regex "^(?<CB>[ATCGNX]{16})_(?<UB>[ATCGNX]{12})"`
+- `bc-umi`: `--barcode-regex "^(?<CB>[ATCGNX]+)_(?<UB>[ATCGNX]+)"`
 - `umi-tools`: `--barcode-regex "_(?<UB>[ATCGNX]+)$"`
 - `illumina`: `--barcode-regex ":(?<UB>[ATCGNX]+)$"`
 
@@ -165,3 +164,16 @@ By default, _nailpolish_ expects that every read in the input `.fastq` **must** 
 cluster file.
 In the event where this is not the case, _nailpolish_ will error. To ignore this error and silently skip over any
 unmatched reads, the `--skip-unmatched` flag should be passed.
+
+Skipped reads are counted and stored in the index. They are reported as `reads without barcodes`, both in the
+statistics printed at the end of indexing and in [`nailpolish summary`](./summary.md):
+
+```
+[21:35:02] Statistics:
+[21:35:02]   14,141 reads in total
+[21:35:02]   14,092 reads with barcodes
+[21:35:02]   49 reads without barcodes
+[21:35:02] completed in 12.4s runtime
+```
+
+Only reads with barcodes are written to the index, so skipped reads take no part in consensus calling.

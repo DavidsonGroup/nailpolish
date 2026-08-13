@@ -90,6 +90,7 @@ pub struct IndexArgs {
     pub preset: preset::PresetBarcodeFormats,
 
     /// whether to use a file containing pre-clustered reads, as a semicolon-separated tabular file.
+    /// the file should have a header line, and the columns should be:
     ///   read_id;CB;UB
     ///   READ_HEADER_1;BARCODE1;UMI1
     ///   READ_HEADER_2;BARCODE2;UMI2

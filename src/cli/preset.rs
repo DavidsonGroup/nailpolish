@@ -17,11 +17,13 @@ pub enum PresetBarcodeFormats {
     /// bcl2fastq format, which has `:<UMI>` at the end of the read ID.
     Illumina,
 
-    /// .sam tag format with barcode and UMI, which uses the :CB:Z:____ and :UB:Z:____ tag format.
-    SamTaggedCBUB,
+    /// .sam tag (fastq comment) format with barcode and UMI, which uses the CB:Z:____ and UB:Z:____ tag format.
+    #[value(alias("sam-tagged-cb-ub"))]
+    TagCBUB,
 
-    /// .sam tag format with only barcode, which uses the :CB:Z:___ format.
-    SamTaggedCB,
+    /// .sam tag (fastq comment) format with only barcode, which uses the CB:Z:___ format.
+    #[value(alias("sam-tagged-cb"))]
+    TagCB,
 }
 
 impl PresetBarcodeFormats {
@@ -31,10 +33,8 @@ impl PresetBarcodeFormats {
             PresetBarcodeFormats::BcUmi => r"^(?<CB>[ATCGNX]{16})_(?<UB>[ATCGNX]{12})",
             PresetBarcodeFormats::UmiTools => r"_(?<UB>[ATCGNX]+)$",
             PresetBarcodeFormats::Illumina => r":(?<UB>[ATCGNX]+)$",
-            PresetBarcodeFormats::SamTaggedCB => r"\sCB:Z:(?<CB>[ATCGNX]+)",
-            PresetBarcodeFormats::SamTaggedCBUB => {
-                r"\sCB:Z:(?<CB>[ATCGNX]+).*\sUB:Z:(?<UB>[ATCGNX]+)"
-            }
+            PresetBarcodeFormats::TagCB => r"\sCB:Z:(?<CB>[ATCGNX]+)",
+            PresetBarcodeFormats::TagCBUB => r"\sCB:Z:(?<CB>[ATCGNX]+).*\sUB:Z:(?<UB>[ATCGNX]+)",
         })
     }
 }

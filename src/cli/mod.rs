@@ -89,9 +89,10 @@ pub struct IndexArgs {
     #[arg(value_enum, conflicts_with = "barcode_regex", default_value = "bc-umi")]
     pub preset: preset::PresetBarcodeFormats,
 
-    /// whether to use a file containing pre-clustered reads, with every line in one of two formats:
-    ///   1. READ_ID;BARCODE
-    ///   2. READ_ID;BARCODE;UMI
+    /// whether to use a file containing pre-clustered reads, as a semicolon-separated tabular file.
+    ///   read_id;CB;UB
+    ///   READ_HEADER_1;BARCODE1;UMI1
+    ///   READ_HEADER_2;BARCODE2;UMI2
     #[arg(long, verbatim_doc_comment, conflicts_with = "preset")]
     pub clusters: Option<PathBuf>,
 
@@ -160,8 +161,8 @@ pub struct ConsensusArgs {
 
     /// disable the clustering algorithm
     /// this will prevent nailpolish from detecting and separating false duplicates
-    #[arg(long, action)]
-    pub no_clustering: bool,
+    #[arg(long, action, alias = "no-clustering")]
+    pub no_false_duplicate_detection: bool,
 
     /// filter lengths to a value within the given float interval [a,b].
     /// a is the minimum, and b is the maximum (both inclusive).
@@ -192,14 +193,14 @@ pub struct ConsensusArgs {
     pub max_group_size: usize,
 
     /// how to handle groups larger than --max-group-size.
-    /// passthrough outputs all reads without consensus calling (current behaviour);
-    /// drop omits the group from output entirely;
-    /// sample pseudorandomly subsamples to max-group-size and consensus calls the result;
-    /// longest keeps the longest reads up to max-group-size and consensus calls the result.
+    /// - `passthrough` outputs all reads without consensus calling (default);
+    /// - `drop` omits the group from output entirely;
+    /// - `sample` pseudorandomly subsamples to max-group-size and consensus calls the result;
+    /// - `longest` keeps the longest reads up to max-group-size and consensus calls the result.
     #[arg(long, value_enum, default_value = "passthrough", verbatim_doc_comment)]
     pub large_group_method: LargeGroupMethod,
 
-    /// sort groups by the specified capture group tag (e.g., 'CB' for cell barcode)
+    /// sort output groups by the specified capture group tag (e.g., 'CB' for cell barcode)
     #[arg(long)]
     pub sort_by: Option<String>,
 }

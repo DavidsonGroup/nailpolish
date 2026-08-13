@@ -31,13 +31,9 @@ impl PresetBarcodeFormats {
             PresetBarcodeFormats::BcUmi => r"^(?<CB>[ATCGNX]{16})_(?<UB>[ATCGNX]{12})",
             PresetBarcodeFormats::UmiTools => r"_(?<UB>[ATCGNX]+)$",
             PresetBarcodeFormats::Illumina => r":(?<UB>[ATCGNX]+)$",
-            PresetBarcodeFormats::SamTaggedCB => r"\t:CB:Z:(?<CB>[ATCGNX]+)",
-            // this one is a bit annoying. it's two regexes, connected with an OR:
-            //   regex 1: \t:CB:Z:(?<CB>[ATCGNX]+).*\t:UB:Z:(?<UB>[ATCGNX]+
-            //   regex 2: \t:UB:Z:(?<UB>[ATCGNX]+).*\t:CB:Z:(?<CB>[ATCGNX]+)
-            // this accounts for the fact that the order of CB and UB may be switched around.
+            PresetBarcodeFormats::SamTaggedCB => r"\sCB:Z:(?<CB>[ATCGNX]+)",
             PresetBarcodeFormats::SamTaggedCBUB => {
-                r"(?:\t:CB:Z:(?<CB>[ATCGNX]+).*\t:UB:Z:(?<UB>[ATCGNX]+))|(?:\t:UB:Z:(?<UB>[ATCGNX]+).*\t:CB:Z:(?<CB>[ATCGNX]+))"
+                r"\sCB:Z:(?<CB>[ATCGNX]+).*\sUB:Z:(?<UB>[ATCGNX]+)"
             }
         })
     }

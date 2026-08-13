@@ -150,7 +150,7 @@ impl<'a> HeaderFormatter<'a> {
         ));
 
         // if this is a consensus read AND clusters are enabled, report cluster count
-        if !self.args.no_clustering {
+        if !self.args.no_false_duplicate_detection {
             read_comments.push(FastqComment::new(
                 "nC",
                 FastqCommentType::Integer(cluster.id),
@@ -199,7 +199,7 @@ impl<'a> HeaderFormatter<'a> {
             FastqCommentType::String("original".to_string()),
         ));
 
-        if !self.args.no_clustering {
+        if !self.args.no_false_duplicate_detection {
             read_comments.push(FastqComment::new(
                 "nC",
                 FastqCommentType::Integer(cluster.id),

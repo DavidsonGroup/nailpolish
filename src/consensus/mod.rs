@@ -92,7 +92,7 @@ pub fn consensus(cli: &crate::cli::ConsensusArgs) -> Result<()> {
     let mut writer = output_writer::OutputWriter::new(
         crate::utils::get_writer(cli.output.as_deref())?,
         index.metadata().total_reads,
-        cli.no_clustering,
+        cli.no_false_duplicate_detection,
     );
 
     let opts = FilterOpts::new(cli);
@@ -379,7 +379,7 @@ fn insert_read_into_clusters<'a>(
 
         let align = with_alignment_engine(|engine| engine.align_from_bytes(seq, graph));
 
-        let will_cluster = if first_read_in_group || args.no_clustering {
+        let will_cluster = if first_read_in_group || args.no_false_duplicate_detection {
             true
         } else {
             let alignment_prediction = graph.predict_alignment_from_bytes(&align, seq);

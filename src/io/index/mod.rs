@@ -166,10 +166,20 @@ impl Index {
         &self.metadata
     }
 
-    /// Marks the indexation process as complete and updates metadata with elapsed time and size.
-    pub fn mark_indexation_complete(&mut self, gb: f64) -> Result<(), SystemTimeError> {
+    /// Marks the indexation process as complete and updates metadata with elapsed time,
+    /// size, and the number of reads which never made it into the index.
+    pub fn mark_indexation_complete(
+        &mut self,
+        gb: f64,
+        unmatched: usize,
+    ) -> Result<(), SystemTimeError> {
         self.metadata.elapsed = self._start.elapsed()?.as_secs_f64();
         self.metadata.gb = gb;
+
+        // every read in the index resolved an identifier, so total_reads — counted
+        // per-read in add_read_metadata — is exactly the barcoded count
+        self.metadata.normal_reads = self.metadata.total_reads;
+        self.metadata.filtered_reads = unmatched;
         Ok(())
     }
 

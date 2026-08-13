@@ -10,6 +10,7 @@ use crate::{
     cli::get_version_label,
     io::{index::storage::FileIndexPath, reads::record::QualityCompute},
     utils,
+    utils::fmt_count,
 };
 
 /// Stores metadata about an index, including read statistics and file information
@@ -38,11 +39,10 @@ pub struct IndexMetadata {
 }
 
 impl IndexMetadata {
-    /// Updates statistics for a single read, including counts and running averages
+    /// Updates statistics for a single read, including counts and running averages.
+    /// Only called for reads which resolved a barcode; the reads which did not are
+    /// counted once at the end of indexing, in `Index::mark_indexation_complete`.
     pub fn add_read_metadata(&mut self, rec: needletail::parser::SequenceRecord) {
-        // update metadata
-        // self.filtered_reads += key.is_filtered() as usize;
-        // self.normal_reads += key.is_normal() as usize;
         self.total_reads += 1;
 
         self.avg_qual = utils::running_avg(
@@ -60,17 +60,22 @@ impl IndexMetadata {
         self.file_path = file;
     }
 
-    /// Logs a summary of read processing statistics
+    /// Logs a summary of read processing statistics. `total_reads` counts the reads
+    /// written to the index, and `filtered_reads` the reads skipped for having no
+    /// barcode, so the two sum to the reads seen in the file.
     pub fn report_read_counts(&self) {
         info!(
             indoc::indoc! {"
                 Statistics:
                   {} reads in total
-                  {} valid
-                  {} filtered out
+                  {} reads with barcodes
+                  {} reads without barcodes
                 completed in {:.1}s runtime"
             },
-            self.total_reads, self.normal_reads, self.filtered_reads, self.elapsed,
+            fmt_count(self.total_reads + self.filtered_reads),
+            fmt_count(self.total_reads),
+            fmt_count(self.filtered_reads),
+            self.elapsed,
         )
     }
 }

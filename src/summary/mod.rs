@@ -10,7 +10,7 @@ use std::io::Write;
 
 use anyhow::Result;
 
-use crate::{io::index::IndexReader, summary::count::IndexStatistics};
+use crate::{io::index::IndexReader, summary::count::IndexStatistics, utils::fmt_count};
 
 use count::summarize_index;
 
@@ -68,15 +68,19 @@ pub fn summarize(args: &crate::cli::SummaryArgs) -> Result<()> {
 
 #[rustfmt::skip]
 fn print_stats_table(stats: &IndexStatistics) {
-        info!("──────────────────────────┬───────────────────────────────────────────────────");
-        info!("  Nailpolish version      │ {}", stats.nailpolish_version);
-        info!("  File path               │ {}", stats.file_path);
-        info!("  Dataset size            │ {} GB", stats.gb);
-        info!("  Index date              │ {}", stats.index_date);
-        info!("  Total read count        │ {}", stats.read_count);
-        info!("  Reads with barcodes     │ {}", stats.unfiltered_read_count);
-        info!("  Reads without barcodes  │ {}", stats.filtered_read_count);
-        info!("  Average quality         │ {}", stats.avg_qual);
-        info!("  Average length          │ {}", stats.avg_len);
-        info!("──────────────────────────┴───────────────────────────────────────────────────");
+    // `gb` is stored as GiB, so scale back to bytes and let humansize pick the unit
+    let size_opts = humansize::FormatSizeOptions::from(humansize::BINARY)
+        .units(humansize::Kilo::Decimal)
+        .decimal_places(1);
+    let bytes = stats.gb * 1024.0 * 1024.0 * 1024.0;
+
+    info!("  Nailpolish version:        {}", stats.nailpolish_version);
+    info!("  File path:                 {}", stats.file_path);
+    info!("  Dataset size:              {}", humansize::format_size_i(bytes, size_opts));
+    info!("  Index date:                {}", stats.index_date);
+    info!("  Total read count:          {}", fmt_count(stats.read_count));
+    info!("  Reads with barcodes:       {}", fmt_count(stats.unfiltered_read_count));
+    info!("  Reads without barcodes:    {}", fmt_count(stats.filtered_read_count));
+    info!("  Average quality:           {:.1}", stats.avg_qual);
+    info!("  Average length:            {:.1}", stats.avg_len);
 }

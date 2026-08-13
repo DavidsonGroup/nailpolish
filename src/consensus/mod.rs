@@ -170,7 +170,7 @@ fn handle_filtered_reads(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
     captures: &ArchivedCaptures,
-) -> Result<(String, output_writer::OutputMetadata)> {
+) -> Result<(String, output_writer::GroupConsensusMetadata)> {
     let reads_u8 = group.reads.concat();
     let header_builder = formatter::HeaderFormatter::new(group, args, captures);
     let mut reader = FastqReader::new(Cursor::new(reads_u8));
@@ -196,13 +196,15 @@ fn handle_filtered_reads(
         read_idx += 1;
     }
 
+    // TODO: assess whether "is_duplicate: true" here is appropriate
     Ok((
         result,
-        output_writer::OutputMetadata {
+        output_writer::GroupConsensusMetadata {
             num_reads: group.reads.len(),
-            clusters: 0,
-            num_filtered_reads: group.reads.len(),
-            is_duplicate: true,
+            is_duplicate_group: true,
+            post_fdd_singleton_groups: 0,
+            post_fdd_duplicate_groups: (0, 0),
+            filtered_reads: group.reads.len(),
         },
     ))
 }
@@ -212,7 +214,7 @@ fn process_simplex_read(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
     captures: &ArchivedCaptures,
-) -> Result<(String, output_writer::OutputMetadata)> {
+) -> Result<(String, output_writer::GroupConsensusMetadata)> {
     let reads_u8 = group.reads.concat();
     let header_builder = formatter::HeaderFormatter::new(group, args, captures);
 
@@ -237,11 +239,12 @@ fn process_simplex_read(
 
     Ok((
         result,
-        output_writer::OutputMetadata {
+        output_writer::GroupConsensusMetadata {
             num_reads: 1,
-            clusters: 1,
-            num_filtered_reads: 0,
-            is_duplicate: false,
+            is_duplicate_group: false,
+            post_fdd_singleton_groups: 1,
+            post_fdd_duplicate_groups: (0, 0),
+            filtered_reads: 0,
         },
     ))
 }
@@ -259,7 +262,7 @@ fn process_consensus_reads(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
     captures: &ArchivedCaptures,
-) -> Result<(String, output_writer::OutputMetadata)> {
+) -> Result<(String, output_writer::GroupConsensusMetadata)> {
     // Filtered groups should always be simplex reads.
     assert_ne!(group.group_type, DuplicateGroupType::Filtered);
 
@@ -339,11 +342,15 @@ fn process_consensus_reads(
 
     Ok((
         result,
-        output_writer::OutputMetadata {
+        output_writer::GroupConsensusMetadata {
             num_reads: group.reads.len(),
-            clusters: clusters.len(),
-            num_filtered_reads: 0,
-            is_duplicate: true,
+            is_duplicate_group: true,
+            post_fdd_singleton_groups: clusters.iter().filter(|c| c.read_count == 1).count(),
+            post_fdd_duplicate_groups: clusters
+                .iter()
+                .filter(|c| c.read_count > 1)
+                .fold((0, 0), |(g, r), c| (g + 1, r + c.read_count)),
+            filtered_reads: 0,
         },
     ))
 }

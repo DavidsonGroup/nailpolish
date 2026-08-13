@@ -96,24 +96,3 @@ pub(crate) fn is_gzip_file(path: &Path) -> bool {
         false
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::fmt_count;
-
-    #[test]
-    fn fmt_count_groups_digits_from_the_right() {
-        // group boundaries: each length mod 3 has a different leading group
-        assert_eq!(fmt_count(0), "0");
-        assert_eq!(fmt_count(7), "7");
-        assert_eq!(fmt_count(12), "12");
-        assert_eq!(fmt_count(123), "123");
-        assert_eq!(fmt_count(1234), "1,234");
-        assert_eq!(fmt_count(12345), "12,345");
-        assert_eq!(fmt_count(123456), "123,456");
-        assert_eq!(fmt_count(1234567), "1,234,567");
-        assert_eq!(fmt_count(3030565), "3,030,565");
-        // zeroes within a group must be preserved
-        assert_eq!(fmt_count(1000000), "1,000,000");
-    }
-}

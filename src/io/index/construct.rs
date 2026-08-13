@@ -142,7 +142,7 @@ pub fn construct_index(cli: &crate::cli::IndexArgs) -> Result<()> {
     // finalise the gzip index, if the source file is a .gzip file
     reader.finish_gzip_index()?;
 
-    index.mark_indexation_complete(final_position)?;
+    index.mark_indexation_complete(final_position, skipped)?;
     index.metadata().report_read_counts();
 
     index.write()?;

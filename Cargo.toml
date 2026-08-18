@@ -44,6 +44,10 @@ indexed_deflate = "0.1.0"
 [[bin]]
 name = "nailpolish"
 
+[workspace.metadata.cross.build]
+# forward the architecture baseline flags into the cross container
+env.passthrough = ["CFLAGS", "CXXFLAGS", "RUSTFLAGS"]
+
 [workspace.metadata.cross.target.x86_64-unknown-linux-gnu]
 # use CentOS7-compatible builder (supports libc 2.17)
 image = "ghcr.io/olliecheng/images:cross-x86-centos"

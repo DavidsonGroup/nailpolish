@@ -44,6 +44,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
 
+    # Pin the baseline to x86-64-v3 (AVX2) - otherwise, march=native results in
+    # a GH Actions build having AVX512 instructions which are not supported on some
+    # HPC CPUs
+    env:
+      CFLAGS: "-march=x86-64-v3"
+      CXXFLAGS: "-march=x86-64-v3"
+      RUSTFLAGS: "-C target-cpu=x86-64-v3"
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,7 +76,7 @@ jobs:
         with:
           command: "build"
           target: "x86_64-unknown-linux-gnu"
-          args: "--release"
+          args: "--release --features nonative"
 
       - name: Upload Linux Binary
         uses: actions/upload-artifact@v4

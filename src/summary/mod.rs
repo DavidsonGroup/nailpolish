@@ -74,6 +74,10 @@ fn print_stats_table(stats: &IndexStatistics) {
         .decimal_places(1);
     let bytes = stats.gb * 1024.0 * 1024.0 * 1024.0;
 
+    let singletons = stats.stats.get(&1).map_or(0, |r| r.count);
+    let duplicate_groups: usize = stats.stats.iter().filter(|(&size, _)| size > 1).map(|(_, r)| r.count).sum();
+    let duplicate_reads: usize = stats.stats.iter().filter(|(&size, _)| size > 1).map(|(&size, r)| size * r.count).sum();
+
     info!("  Nailpolish version:        {}", stats.nailpolish_version);
     info!("  File path:                 {}", stats.file_path);
     info!("  Dataset size:              {}", humansize::format_size_i(bytes, size_opts));
@@ -81,6 +85,8 @@ fn print_stats_table(stats: &IndexStatistics) {
     info!("  Total read count:          {}", fmt_count(stats.read_count));
     info!("  Reads with barcodes:       {}", fmt_count(stats.unfiltered_read_count));
     info!("  Reads without barcodes:    {}", fmt_count(stats.filtered_read_count));
+    info!("  Singleton groups:          {}", fmt_count(singletons));
+    info!("  Duplicate groups:          {}   ({} reads)", fmt_count(duplicate_groups), fmt_count(duplicate_reads));
     info!("  Average quality:           {:.1}", stats.avg_qual);
     info!("  Average length:            {:.1}", stats.avg_len);
 }

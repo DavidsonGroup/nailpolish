@@ -39,6 +39,8 @@ A brief summary of the dataset is printed to the terminal:
 [16:17:49]   Total read count:          14,143
 [16:17:49]   Reads with barcodes:       14,143
 [16:17:49]   Reads without barcodes:    0
+[16:17:49]   Singleton groups:          10,855
+[16:17:49]   Duplicate groups:          1,310   (3,288 reads)
 [16:17:49]   Average quality:           21.2
 [16:17:49]   Average length:            1030.6
 ```
@@ -48,6 +50,12 @@ plus those which had no barcode and were skipped. Reads without barcodes are onl
 possible if the index was built with
 [`--skip-unmatched`](./index.md#reading-the-index) — without that flag, `nailpolish
 index` errors on the first read it cannot match.
+
+`Singleton groups` and `Duplicate groups` split the indexed groups by size: groups with a
+single read, and groups with two or more reads (along with the total number of reads in
+them). These are the counts _before_ consensus calling — [`nailpolish
+consensus`](./consensus.md) reports them again after false-duplicate detection, which
+splits some duplicate groups into smaller groups and singletons.
 
 The full report, including the distribution of duplicate group sizes, is written to the
 HTML file.

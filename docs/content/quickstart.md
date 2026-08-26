@@ -75,6 +75,8 @@ $ nailpolish summary scmixology2_sample.fastq
 [16:17:49]   Total read count:          14,143
 [16:17:49]   Reads with barcodes:       14,143
 [16:17:49]   Reads without barcodes:    0
+[16:17:49]   Singleton groups:          10,855
+[16:17:49]   Duplicate groups:          1,310   (3,288 reads)
 [16:17:49]   Average quality:           21.2
 [16:17:49]   Average length:            1030.6
 ```

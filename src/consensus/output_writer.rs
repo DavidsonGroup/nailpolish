@@ -98,7 +98,7 @@ impl<W: IoWrite> OutputWriter<W> {
     pub fn report_header(&self, total_groups: usize) {
         info!(
             "Calling consensus on {} reads across {} groups",
-            fmt_count(self.num_reads),
+            fmt_count(self.total_num_reads),
             fmt_count(total_groups)
         );
         info!("");

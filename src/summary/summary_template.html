@@ -91,7 +91,7 @@
         }
 
         .chart-container {
-            flex: none;
+            flex: 1 1 auto;
             min-width: 0;
         }
 
@@ -99,6 +99,8 @@
             max-height: 500px;
             overflow-y: auto;
             overflow-x: hidden;
+            margin-right: 20px;
+            margin-left: -20px;
         }
 
         @media (max-width: 1000px) {
@@ -114,6 +116,13 @@
                 flex: none;
                 max-width: none;
                 order: -1;
+            }
+
+            /* in column direction the section's flex-start would shrink-wrap the
+               (intrinsically zero-width) plot away entirely */
+            .chart-container {
+                align-self: stretch;
+                width: 100%;
             }
         }
 
@@ -221,8 +230,8 @@
             </div>
         </div>
         <div class="chart-description">
-            <p>A 'duplicate group' is a group of reads which all share the same barcode and UMI.</p>
-            <p>There are <span id="groupCount">calculating...</span> total duplicate group(s). Only groups with
+            <p>A 'UMI group' is a collection of reads which all share the same barcode and UMI.</p>
+            <p>There are <span id="groupCount">calculating...</span> unique UMI groups. Only groups with
                 &lt;<span class="threshold-ind"></span> duplicates are shown in the graph.</p>
             <p>
                 <strong>Note.</strong> Some reads will share a molecular identifier despite originating from different
@@ -298,6 +307,8 @@
         const plotLayout = {
             margin: { t: 10, b: 40 },
             yaxis: { autorange: 'reversed', dtick: 1, title: 'Duplicate count' },
+            // hovering anywhere in a row shows its tooltip, so tiny bars stay reachable
+            hovermode: 'y unified',
             // xaxis: { title: '' },
             height: Math.max(200, 50 * groupLabels.length)
         };
@@ -318,8 +329,9 @@
             name: 'Group count',
             text: pct(groupCounts, totalGroups),
             textposition: 'auto',
+            hovertemplate: '%{x} groups (%{text})<extra></extra>',
             cliponaxis: false
-        }], { ...plotLayout, xaxis: { title: 'Group count', range: [0, Math.max(...groupCounts)] }, cliponaxis: false });
+        }], { ...plotLayout, xaxis: { title: 'Group count', range: [0, Math.max(...groupCounts)] }, cliponaxis: false }, { responsive: true });
 
         Plotly.newPlot('byRead', [{
             type: 'bar',
@@ -329,7 +341,8 @@
             name: 'Read count',
             text: pct(readCounts, totalReads),
             textposition: 'auto',
-        }], { ...plotLayout, xaxis: { title: 'Read count', range: [0, Math.max(...readCounts)] }, cliponaxis: false });
+            hovertemplate: '%{x} reads (%{text})<extra></extra>',
+        }], { ...plotLayout, xaxis: { title: 'Read count', range: [0, Math.max(...readCounts)] }, cliponaxis: false }, { responsive: true });
 
         // Update threshold indicators and counts
         document.querySelectorAll('.threshold-ind').forEach(el => el.textContent = THRESHOLD);

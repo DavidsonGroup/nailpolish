@@ -48,6 +48,12 @@ pub fn summarize(args: &crate::cli::SummaryArgs) -> Result<()> {
     // we must convert this to a string so it imports correctly
     json["stats"] = serde_json::json!(serde_json::to_string(&stats.stats)?);
 
+    // format the values for display in the HTML summary
+    json["gb"] = serde_json::json!(format!("{:.3}", stats.gb));
+    json["index_date"] = serde_json::json!(fmt_date(&stats.index_date));
+    json["avg_qual"] = serde_json::json!(format!("{:.1}", stats.avg_qual));
+    json["avg_len"] = serde_json::json!(format!("{:.1}", stats.avg_len));
+
     debug!("serde_json: {json:?}");
 
     // Use the handlebars crate to render the template with the stats
@@ -66,22 +72,23 @@ pub fn summarize(args: &crate::cli::SummaryArgs) -> Result<()> {
     Ok(())
 }
 
+fn fmt_date(date: &str) -> String {
+    match chrono::DateTime::parse_from_rfc3339(date) {
+        Ok(dt) => dt.format("%-d %B %Y, %-I:%M %p").to_string(),
+        Err(_) => date.to_string(),
+    }
+}
+
 #[rustfmt::skip]
 fn print_stats_table(stats: &IndexStatistics) {
-    // `gb` is stored as GiB, so scale back to bytes and let humansize pick the unit
-    let size_opts = humansize::FormatSizeOptions::from(humansize::BINARY)
-        .units(humansize::Kilo::Decimal)
-        .decimal_places(1);
-    let bytes = stats.gb * 1024.0 * 1024.0 * 1024.0;
-
     let singletons = stats.stats.get(&1).map_or(0, |r| r.count);
     let duplicate_groups: usize = stats.stats.iter().filter(|(&size, _)| size > 1).map(|(_, r)| r.count).sum();
     let duplicate_reads: usize = stats.stats.iter().filter(|(&size, _)| size > 1).map(|(&size, r)| size * r.count).sum();
 
     info!("  Nailpolish version:        {}", stats.nailpolish_version);
     info!("  File path:                 {}", stats.file_path);
-    info!("  Dataset size:              {}", humansize::format_size_i(bytes, size_opts));
-    info!("  Index date:                {}", stats.index_date);
+    info!("  Dataset size:              {:.3}", stats.gb);
+    info!("  Index date:                {}", fmt_date(&stats.index_date));
     info!("  Total read count:          {}", fmt_count(stats.read_count));
     info!("  Reads with barcodes:       {}", fmt_count(stats.unfiltered_read_count));
     info!("  Reads without barcodes:    {}", fmt_count(stats.filtered_read_count));

@@ -91,12 +91,9 @@ for a complete description of all tags.
 A typical output looks like this (tabs shown as newlines for clarity):
 
 ```
-@processed_12047_1
-  nI:i:12047
+@consensus_12047_1
   CB:Z:GATAGCTAGCAACAAT
   UB:Z:ATTTTACCGACC
-  nT:Z:consensus
-  nC:i:1
   nL:i:2
 ```
 

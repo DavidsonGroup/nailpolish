@@ -3,7 +3,6 @@
 // We also ask that you cite this software in publications
 // where you made use of it for any part of the data analysis.
 
-use itertools::Itertools;
 use serde::Serialize;
 use spoa::AlignmentResult;
 use std::fmt;
@@ -86,5 +85,7 @@ impl fmt::Display for FastqComment {
 }
 
 pub fn write_comments(w: &mut impl std::fmt::Write, comments: &Vec<FastqComment>) {
-    write!(w, "\t{}", comments.iter().map(|v| v.to_string()).join("\t")).unwrap()
+    for comment in comments {
+        write!(w, "\t{comment}").unwrap()
+    }
 }

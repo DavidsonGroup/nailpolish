@@ -146,7 +146,7 @@ fn process_groups_parallel(
         if g.group_type == DuplicateGroupType::Filtered {
             handle_filtered_reads(g, args, captures)
         } else if g.reads.len() == 1 {
-            process_simplex_read(g, args, captures)
+            process_singleton_read(g, args, captures)
         } else {
             process_consensus_reads(g, args, captures)
         }
@@ -183,7 +183,7 @@ fn handle_filtered_reads(
         let seq = read.seq();
         let qual = read.qual().context("No quality")?;
 
-        let header = header_builder.make_filtered_header(read_idx);
+        let header = header_builder.make_passthrough_header(read_idx);
 
         writeln!(
             result,
@@ -209,8 +209,8 @@ fn handle_filtered_reads(
     ))
 }
 
-/// Simplex read caller: processes single reads without consensus calling
-fn process_simplex_read(
+/// Singleton read caller: processes single reads without consensus calling
+fn process_singleton_read(
     group: &DuplicateGroup,
     args: &ConsensusArgs,
     captures: &ArchivedCaptures,
@@ -225,7 +225,8 @@ fn process_simplex_read(
         .context("No read found")?
         .context("Invalid read")?;
 
-    let header = header_builder.make_simplex_header(String::from_utf8(read.id().to_vec()).unwrap());
+    let header =
+        header_builder.make_singleton_header(String::from_utf8(read.id().to_vec()).unwrap());
 
     let seq = read.seq();
     let qual = read.qual().context("No quality")?;

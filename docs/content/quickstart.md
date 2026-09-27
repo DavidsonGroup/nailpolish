@@ -17,7 +17,7 @@ _For more information, see [Install](./install.md)._
 For x64 Linux, run:
 
 ```shell
-curl -LsSf "https://github.com/DavidsonGroup/nailpolish/releases/download/latest/nailpolish" -o nailpolish
+curl -LsSf "https://github.com/DavidsonGroup/nailpolish/releases/latest/download/nailpolish" -o nailpolish
 chmod +x nailpolish
 ```
 
@@ -36,7 +36,7 @@ Alternative barcode and UMI formats can be provided through either a preset (one
 or a custom barcode regex.
 
 ```console
-$ nailpolish index scmixology2_sample.fastq
+$ ./nailpolish index scmixology2_sample.fastq
 
 [16:17:08] nailpolish v0.2.2, commit #65a177c-modified
 [16:17:08] CMD: ../target/release/nailpolish index scmixology2_sample.fastq
@@ -62,7 +62,7 @@ A .html file can be generated to summarise some key statistics about the input r
 The output file will be written to `scmixology2_sample.summary.html`.
 
 ```console
-$ nailpolish summary scmixology2_sample.fastq
+$ ./nailpolish summary scmixology2_sample.fastq
 
 [16:17:49] nailpolish v0.2.2, commit #65a177c-modified
 [16:17:49] CMD: ../target/release/nailpolish summary scmixology2_sample.fastq
@@ -90,7 +90,7 @@ Here is an example summary output file. [Open in a new tab...](./assets/summary.
 _For more information, see [nailpolish consensus](commands/consensus.md)._
 
 ```console
-$ nailpolish consensus scmixology2_sample.fastq \
+$ ./nailpolish consensus scmixology2_sample.fastq \
   -o scmixology2_consensus.fastq \
   --threads 4 
 

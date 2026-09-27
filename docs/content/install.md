@@ -11,7 +11,7 @@ libc. Binaries are published to the [Releases](https://github.com/DavidsonGroup/
 === "Linux"
     **Most recent stable release:**
     ```shell
-    curl -LsSf "https://github.com/DavidsonGroup/nailpolish/releases/download/latest/nailpolish" -o nailpolish
+    curl -LsSf "https://github.com/DavidsonGroup/nailpolish/releases/latest/download/nailpolish" -o nailpolish
     chmod +x nailpolish
     ```
 
@@ -24,7 +24,7 @@ libc. Binaries are published to the [Releases](https://github.com/DavidsonGroup/
 === "macOS"
     **Most recent stable release:**
     ```shell
-    curl -LsSf "https://github.com/DavidsonGroup/nailpolish/releases/download/nightly/nailpolish-macos-universal" -o nailpolish
+    curl -LsSf "https://github.com/DavidsonGroup/nailpolish/releases/latest/download/nailpolish-macos-universal" -o nailpolish
     chmod +x nailpolish
     ```
 

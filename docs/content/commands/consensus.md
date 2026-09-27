@@ -26,47 +26,26 @@ Options:
 
   -t, --threads <THREADS>
           the number of threads to use
-
+          
           [default: 4]
 
-      --report-original-reads
-          for each duplicate group of reads, report the original reads along with the consensus
+  -h, --help
+          Print help (see a summary with '-h')
 
-      --report-original-header
-          if the original read headers are valuable, this will create a orig_header field in the consensus called result with the entire original read header
-
-      --extra-stats
-          add debugging information to the read header [intended for internal development] warning: since timings are reported, the output will not be identical across runs
-
+Duplicate handling:
       --no-false-duplicate-detection
           disable the clustering algorithm this will prevent nailpolish from detecting and separating false duplicates
 
-      --len <LEN>
-          filter lengths to a value within the given float interval [a,b].
-          a is the minimum, and b is the maximum (both inclusive).
-          alternatively, a can be `-inf` and b can be `inf.
-          an unbounded interval (i.e. no length filter) is given by `0,inf`.
-
-          [default: 0,15000]
-
-      --qual <QUAL>
-          filter average read quality to a value within the given float interval [a,b].
-          see the docs for `--len` for documentation on how to use the interval.
-
-          [default: 0,inf]
-
       --max-group-size <MAX_GROUP_SIZE>
-          filter out groups larger than this size (skip consensus calling for very large groups) this will prevent large groups, which are typically false duplicates, from having an outsized impact on runtime
-
+          filter out groups larger than this size (skip consensus calling for very large groups)
+          
+          this will prevent large groups, which are typically false duplicates, from having an outsized impact on runtime.
+          
           [default: 250]
 
       --large-group-method <LARGE_GROUP_METHOD>
           how to handle groups larger than --max-group-size.
-          - `passthrough` outputs all reads without consensus calling (default);
-          - `drop` omits the group from output entirely;
-          - `sample` pseudorandomly subsamples to max-group-size and consensus calls the result;
-          - `longest` keeps the longest reads up to max-group-size and consensus calls the result.
-
+          
           [default: passthrough]
 
           Possible values:
@@ -75,11 +54,33 @@ Options:
           - sample:      Pseudorandomly subsample reads to max-group-size, then consensus call
           - longest:     Keep the longest reads (up to max-group-size), then consensus call
 
+Filtering:
+      --len <LEN>
+          filter lengths to a value within the given float interval [a,b].
+          a is the minimum, and b is the maximum (both inclusive).
+          alternatively, a can be `-inf` and b can be `inf.
+          an unbounded interval (i.e. no length filter) is given by `0,inf`.
+          
+          [default: 0,15000]
+
+      --qual <QUAL>
+          filter average read quality to a value within the given float interval [a,b].
+          see the docs for `--len` for documentation on how to use the interval.
+          
+          [default: 0,inf]
+
+Output options:
+      --report-original-reads
+          for each duplicate group of reads, report the original reads along with the consensus
+
+      --report-original-header
+          include original read headers in the output as the nH:Z: tag
+
+      --extra-stats
+          [intended for internal development] add debugging information to the read header
+
       --sort-by <SORT_BY>
           sort output groups by the specified capture group tag (e.g., 'CB' for cell barcode)
-
-  -h, --help
-          Print help (see a summary with '-h')
 ```
 
 ## Output format

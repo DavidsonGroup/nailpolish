@@ -147,23 +147,32 @@ pub struct ConsensusArgs {
     #[arg(short, long, default_value_t = 4)]
     pub threads: usize,
 
-    /// for each duplicate group of reads, report the original reads along with the consensus
-    #[arg(long, action)]
-    pub report_original_reads: bool,
-
-    /// if the original read headers are valuable, this will create a orig_header field in the consensus called result with the entire original read header
-    #[arg(long, action)]
-    pub report_original_header: bool,
-
-    /// add debugging information to the read header [intended for internal development]
-    /// warning: since timings are reported, the output will not be identical across runs
-    #[arg(long, action)]
-    pub extra_stats: bool,
-
     /// disable the clustering algorithm
     /// this will prevent nailpolish from detecting and separating false duplicates
-    #[arg(long, action, alias = "no-clustering")]
+    #[arg(
+        long,
+        action,
+        alias = "no-clustering",
+        help_heading = "Duplicate handling"
+    )]
     pub no_false_duplicate_detection: bool,
+
+    /// filter out groups larger than this size (skip consensus calling for very large groups)
+    ///
+    /// this will prevent large groups, which are typically false duplicates, from having an outsized impact
+    /// on runtime.
+    #[arg(long, default_value_t = 250, help_heading = "Duplicate handling")]
+    pub max_group_size: usize,
+
+    /// how to handle groups larger than --max-group-size.
+    #[arg(
+        long,
+        value_enum,
+        default_value = "passthrough",
+        verbatim_doc_comment,
+        help_heading = "Duplicate handling"
+    )]
+    pub large_group_method: LargeGroupMethod,
 
     /// filter lengths to a value within the given float interval [a,b].
     /// a is the minimum, and b is the maximum (both inclusive).
@@ -173,7 +182,8 @@ pub struct ConsensusArgs {
             long,
             value_parser = |x: &str| ArgInterval::try_from(x),
             default_value = "0,15000",
-            verbatim_doc_comment
+            verbatim_doc_comment,
+            help_heading = "Filtering"
         )]
     pub len: ArgInterval,
 
@@ -183,26 +193,25 @@ pub struct ConsensusArgs {
             long,
             value_parser = |x: &str| ArgInterval::try_from(x),
             default_value = "0,inf",
-            verbatim_doc_comment
+            verbatim_doc_comment,
+            help_heading = "Filtering"
         )]
     pub qual: ArgInterval,
 
-    /// filter out groups larger than this size (skip consensus calling for very large groups)
-    /// this will prevent large groups, which are typically false duplicates, from having an outsized impact
-    /// on runtime.
-    #[arg(long, default_value_t = 250)]
-    pub max_group_size: usize,
+    /// for each duplicate group of reads, report the original reads along with the consensus
+    #[arg(long, action, help_heading = "Output options")]
+    pub report_original_reads: bool,
 
-    /// how to handle groups larger than --max-group-size.
-    /// - `passthrough` outputs all reads without consensus calling (default);
-    /// - `drop` omits the group from output entirely;
-    /// - `sample` pseudorandomly subsamples to max-group-size and consensus calls the result;
-    /// - `longest` keeps the longest reads up to max-group-size and consensus calls the result.
-    #[arg(long, value_enum, default_value = "passthrough", verbatim_doc_comment)]
-    pub large_group_method: LargeGroupMethod,
+    /// include original read headers in the output as the nH:Z: tag
+    #[arg(long, action, help_heading = "Output options")]
+    pub report_original_header: bool,
+
+    /// [intended for internal development] add debugging information to the read header
+    #[arg(long, action, help_heading = "Output options")]
+    pub extra_stats: bool,
 
     /// sort output groups by the specified capture group tag (e.g., 'CB' for cell barcode)
-    #[arg(long)]
+    #[arg(long, help_heading = "Output options")]
     pub sort_by: Option<String>,
 }
 

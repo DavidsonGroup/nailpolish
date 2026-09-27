@@ -384,7 +384,8 @@ fn insert_read_into_clusters<'a>(
             true
         } else {
             let alignment_prediction = graph.predict_alignment_from_bytes(&align, seq);
-            let will_cluster = cluster::should_cluster(&alignment_prediction);
+            let will_cluster =
+                cluster::should_cluster(&alignment_prediction, args.fdd_threshold);
             alignment_predictions.push(alignment_prediction);
             debug!("Prediction:\t{alignment_prediction:?}");
             will_cluster

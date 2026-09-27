@@ -36,6 +36,11 @@ Duplicate handling:
       --no-false-duplicate-detection
           disable the clustering algorithm this will prevent nailpolish from detecting and separating false duplicates
 
+      --fdd-threshold <FDD_THRESHOLD>
+          threshold for the insert-node ratio used to decide whether an alignment should be clustered (merged) into an existing group, rather than treated as a new group. lower values are stricter (fewer merges)
+          
+          [default: 0.25]
+
       --max-group-size <MAX_GROUP_SIZE>
           filter out groups larger than this size (skip consensus calling for very large groups)
           
@@ -105,6 +110,9 @@ A typical output looks like this (tabs shown as newlines for clarity):
 - `--report-original-header`: report the original headers of the reads used to produce
   a consensus
 - `--no-false-duplicate-detection`: disable the false duplicate detection algorithm (see below). Also known as `--no-clustering`.
+- `--fdd-threshold <RATIO>`: the insert-node ratio threshold used by false duplicate detection
+  (default: `0.25`). Lower values are stricter, splitting reads into separate clusters more
+  readily; higher values merge more reads into the same cluster. See below.
 - `--len <LEN>`: filter reads by sequence length. Reads outside the interval are excluded
   from consensus calling. Default: `0,15000` (reads longer than 15,000 bp are excluded,
   as excessively long reads from sequencing errors can dominate consensus calling time).
@@ -131,8 +139,9 @@ By default, _nailpolish_ clusters reads within each duplicate group to detect an
 _false duplicates_ — reads that share a barcode/UMI by coincidence rather than by biology.
 Before adding each read to a partial order alignment graph, nailpolish checks whether the read
 aligns well to the existing graph. If the alignment introduces too many new nodes relative to
-existing ones (more than 25% of valid nodes), the read is assigned to a new cluster rather than
-merged into the current one.
+existing ones (more than the `--fdd-threshold` fraction of valid nodes, default 25%), the read is
+assigned to a new cluster rather than merged into the current one. Pass `--fdd-threshold <RATIO>`
+to make this stricter (lower) or looser (higher) for noisier or cleaner data.
 
 To disable this behaviour — for example, when you are confident that all reads in a group are
 true duplicates, or when using pre-clustered inputs from a tool like isONclust — pass

@@ -157,6 +157,12 @@ pub struct ConsensusArgs {
     )]
     pub no_false_duplicate_detection: bool,
 
+    /// threshold for the insert-node ratio used to decide whether an alignment should be
+    /// clustered (merged) into an existing group, rather than treated as a new group.
+    /// lower values are stricter (fewer merges).
+    #[arg(long, default_value_t = 0.25, help_heading = "Duplicate handling")]
+    pub fdd_threshold: f32,
+
     /// filter out groups larger than this size (skip consensus calling for very large groups)
     ///
     /// this will prevent large groups, which are typically false duplicates, from having an outsized impact

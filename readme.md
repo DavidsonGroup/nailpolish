@@ -8,8 +8,10 @@ Nailpolish identifies PCR duplicates in barcoded data (reads containing identica
 
 Nailpolish operates in a reference-free manner, first identifying duplicate groups and then clustering within each duplicate group. This process ensures that only true duplicates are included in consensus calling. That is, unrelated reads that share barcodes and UMIs (due to read or demultiplexing errors) are not consensus called together, and are instead separated into separate clusters.
 
+For a detailed description of Nailpolish's methodology and how it compares against other tools, please see our [preprint](https://doi.org/10.64898/2026.09.25.754331).
+
 <div align="center">
-  <a href="#install">Install</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="#Output">Output</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="https://davidsongroup.github.io/nailpolish/">Docs</a>
+  <a href="#install">Install</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="#output">Output</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="https://davidsongroup.github.io/nailpolish/">Docs</a>
 
 </div>
 

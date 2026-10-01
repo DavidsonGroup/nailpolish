@@ -13,8 +13,8 @@ For a detailed description of Nailpolish's methodology and how it compares again
 <div align="center">
   <a href="#install">Install</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="#output">Output</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="https://davidsongroup.github.io/nailpolish/">Docs</a>
 </div>
-
-<img src="https://raw.githubusercontent.com/davidsongroup/nailpolish/develop/docs/content/assets/consensus_diagram.svg">
+<br />
+<img src="https://raw.githubusercontent.com/DavidsonGroup/nailpolish/refs/heads/develop/docs/content/assets/consensus_diagram.svg">
 
 ## Install
 

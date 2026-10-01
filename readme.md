@@ -6,14 +6,15 @@ Nailpolish is a high-performance Rust tool designed to improve the accuracy of s
 
 Nailpolish identifies PCR duplicates in barcoded data (reads containing identical barcodes and UMIs, forming "duplicate groups") and applies the partial order alignment consensus algorithm to replace multiple duplicate reads with a single consensus error-corrected read. This process corrects sequencing errors which naturally occur in the reads, improving the overall quality and reliability of sequencing data.
 
-Nailpolish operates in a reference-free manner, first identifying duplicate groups and then clustering within each duplicate group. This process ensures that only true duplicates are included in consensus calling. That is, unrelated reads that share barcodes and UMIs (due to read or demultiplexing errors) are not consensus called together, and are instead separated into separate clusters.
+Nailpolish operates in a reference-free manner, first identifying duplicate groups and then clustering within each duplicate group. This process ensures that only true duplicates are included in consensus calling. That is, unrelated reads that share barcodes and UMIs (due to read or demultiplexing errors) are not consensus called together, and are instead separated into separate subgroups.
 
 For a detailed description of Nailpolish's methodology and how it compares against other tools, please see our [preprint](https://doi.org/10.64898/2026.09.25.754331).
 
 <div align="center">
   <a href="#install">Install</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="#output">Output</a> &nbsp;&nbsp; | &nbsp;&nbsp; <a href="https://davidsongroup.github.io/nailpolish/">Docs</a>
-
 </div>
+
+<img src="https://raw.githubusercontent.com/davidsongroup/nailpolish/develop/docs/content/assets/consensus_diagram.svg">
 
 ## Install
 

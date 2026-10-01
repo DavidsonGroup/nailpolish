@@ -203,6 +203,8 @@ impl<W: IoWrite> OutputWriter<W> {
 
         self.writer.flush()?;
 
+        info!("\nIf you like Nailpolish, please cite our preprint! https://doi.org/10.64898/2026.09.25.754331");
+
         Ok(())
     }
 }
